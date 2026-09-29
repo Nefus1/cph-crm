@@ -33,7 +33,7 @@ export function ContactsFilter({ count }: { count: number }) {
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
-      <div className="relative min-w-0 flex-1 sm:max-w-sm">
+      <div className="relative min-w-0 basis-full sm:max-w-sm sm:flex-1 sm:basis-auto">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-subtle" />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("filterPlaceholder")} className="pl-8" />
       </div>

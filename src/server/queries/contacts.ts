@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { activities, contacts, matterParties, matters, staff } from "@/db/schema";
-import { likePattern } from "./common";
+import { likePattern, tokensMatch } from "./common";
 
 export async function listContacts(opts: { q?: string; filter?: string } = {}) {
   const where: SQL[] = [isNull(contacts.archivedAt)];
@@ -11,7 +11,7 @@ export async function listContacts(opts: { q?: string; filter?: string } = {}) {
     const p = likePattern(q);
     const digits = q.replace(/\D/g, "");
     where.push(
-      sql`(f_unaccent(${contacts.displayName}) ilike f_unaccent(${p}) or ${contacts.email} ilike ${p}
+      sql`((${tokensMatch(contacts.displayName, q)}) or ${contacts.email} ilike ${p}
         ${digits.length >= 3 ? sql`or ${contacts.phoneDigits} like ${"%" + digits + "%"} or ${contacts.phoneAltDigits} like ${"%" + digits + "%"}` : sql``})`,
     );
   }

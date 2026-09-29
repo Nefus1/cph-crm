@@ -1,5 +1,5 @@
 import "server-only";
-import { sql, type SQL } from "drizzle-orm";
+import { sql, type AnyColumn, type SQL } from "drizzle-orm";
 
 /** Balance per matter: charges + adjustments − payments (cents). */
 export const balanceSql = (matterIdCol: SQL | string = sql`m.id`) =>
@@ -22,4 +22,22 @@ export const nextEventSql = (today: string) => sql<string | null>`(
 /** Accent- and case-insensitive LIKE pattern. */
 export function likePattern(q: string) {
   return `%${q.replace(/[%_\\]/g, (c) => "\\" + c)}%`;
+}
+
+/**
+ * Every word must appear somewhere in the column (any order, accent-insensitive),
+ * so "Kevin Marsh" finds "Marsh, Kevin" and "jose hernandez" finds "Hernández, José".
+ */
+export function tokensMatch(column: SQL | AnyColumn, term: string): SQL {
+  const tokens = term
+    .replace(/,/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!tokens.length) return sql`true`;
+  return sql.join(
+    tokens.map((tok) => sql`f_unaccent(${column}) ilike f_unaccent(${likePattern(tok)})`),
+    sql` and `,
+  );
 }

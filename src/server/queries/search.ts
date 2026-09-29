@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
-import { likePattern } from "./common";
+import { likePattern, tokensMatch } from "./common";
 
 export interface SearchHit {
   type: "matter" | "contact";
@@ -24,14 +24,14 @@ export async function searchEverything(q: string): Promise<SearchHit[]> {
       select m.id, m.display_name, m.number, m.case_number, m.practice_area, m.caption
       from matters m
       where m.archived_at is null and (
-        f_unaccent(m.display_name) ilike f_unaccent(${p}) or f_unaccent(m.caption) ilike f_unaccent(${p})
+        (${tokensMatch(sql`m.display_name`, term)}) or (${tokensMatch(sql`m.caption`, term)})
         or m.case_number ilike ${p} or m.number ilike ${p}
         or exists (select 1 from matter_parties mp join contacts c on c.id = mp.contact_id
-                   where mp.matter_id = m.id and (f_unaccent(c.display_name) ilike f_unaccent(${p}) ${phoneClause})))
+                   where mp.matter_id = m.id and ((${tokensMatch(sql`c.display_name`, term)}) ${phoneClause})))
       order by (m.status = 'closed'), m.updated_at desc limit 8`),
     db.execute<{ id: string; display_name: string; phone: string; email: string }>(sql`
       select c.id, c.display_name, c.phone, c.email from contacts c
-      where c.archived_at is null and (f_unaccent(c.display_name) ilike f_unaccent(${p}) or c.email ilike ${p} ${phoneClause})
+      where c.archived_at is null and ((${tokensMatch(sql`c.display_name`, term)}) or c.email ilike ${p} ${phoneClause})
       order by similarity(f_unaccent(lower(c.display_name)), f_unaccent(lower(${term}))) desc, c.display_name limit 8`),
   ]);
 

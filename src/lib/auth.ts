@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { staff, type Staff } from "@/db/schema";
@@ -40,6 +41,8 @@ async function resolveStaff(email: string, userId: string | null, fullName: stri
 
 /** Current signed-in staff member, or null. Memoized per request. */
 export const getCurrentStaff = cache(async (): Promise<Staff | null> => {
+  // Never prerender anything that depends on who is signed in.
+  await connection();
   if (devAuthBypass()) {
     const email = process.env.DEV_AUTH_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || "dev@example.com";
     return resolveStaff(email, null, "Dev User");

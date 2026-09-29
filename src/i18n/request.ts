@@ -1,10 +1,12 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies, headers } from "next/headers";
+import { connection } from "next/server";
 import { getCurrentStaff } from "@/lib/auth";
 
 export type AppLocale = "en" | "es";
 
 async function resolveLocale(): Promise<AppLocale> {
+  await connection();
   try {
     const me = await getCurrentStaff();
     if (me?.locale === "es" || me?.locale === "en") return me.locale;

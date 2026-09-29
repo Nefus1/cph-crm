@@ -20,6 +20,7 @@ import { todayISO } from "@/lib/dates";
 import { createIntake } from "@/server/actions/matters";
 import { cn } from "@/lib/utils";
 import { ConflictPanel } from "./conflict-panel";
+import { PartyInput } from "./party-input";
 
 type Picked = { id: string; title: string; subtitle?: string } | null;
 
@@ -56,7 +57,7 @@ export function IntakeWizard({ driveReady, defaultSupervising, initialClient }: 
   const [caseNumber, setCaseNumber] = useState("");
   const [courthouse, setCourthouse] = useState("");
   const [details, setDetails] = useState<Record<string, string>>({});
-  const [others, setOthers] = useState<{ name: string; role: string; phone: string }[]>([]);
+  const [others, setOthers] = useState<{ name: string; role: string; phone: string; contactId?: string }[]>([]);
   const [feeType, setFeeType] = useState<"flat" | "hourly" | "none">("flat");
   const [fee, setFee] = useState("");
   const [payment, setPayment] = useState("");
@@ -106,7 +107,9 @@ export function IntakeWizard({ driveReady, defaultSupervising, initialClient }: 
             flatFeeCents: feeType === "flat" ? feeCents : 0,
             details,
           },
-          otherParties: others.filter((o) => o.name.trim()).map((o) => ({ role: o.role, contact: { ...splitName(o.name), phone: o.phone } })),
+          otherParties: others
+            .filter((o) => o.name.trim())
+            .map((o) => (o.contactId ? { role: o.role, contactId: o.contactId } : { role: o.role, contact: { ...splitName(o.name), phone: o.phone } })),
           initialPaymentCents: payCents,
           paymentMethod: payCents ? method : "",
           note,
@@ -305,7 +308,14 @@ export function IntakeWizard({ driveReady, defaultSupervising, initialClient }: 
                     <div className="space-y-2">
                       {others.map((o, i) => (
                         <div key={i} className="grid grid-cols-12 gap-2">
-                          <Input className="col-span-12 sm:col-span-5" value={o.name} placeholder={t("partyName")} onChange={(e) => setOthers((l) => l.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
+                          <PartyInput
+                            className="col-span-12 sm:col-span-5"
+                            name={o.name}
+                            contactId={o.contactId}
+                            placeholder={t("partyName")}
+                            onName={(v) => setOthers((l) => l.map((x, j) => (j === i ? { ...x, name: v } : x)))}
+                            onPick={(h) => setOthers((l) => l.map((x, j) => (j === i ? (h ? { ...x, name: h.title, contactId: h.id } : { ...x, contactId: undefined }) : x)))}
+                          />
                           <Select className="col-span-6 sm:col-span-3" value={o.role} onChange={(e) => setOthers((l) => l.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))}>
                             {PARTY_ROLES.filter((r) => r.value !== "client").map((r) => (
                               <option key={r.value} value={r.value}>

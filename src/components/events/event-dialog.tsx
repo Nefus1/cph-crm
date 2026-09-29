@@ -7,7 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { MatterSelect } from "@/components/app/matter-select";
 import { useAction } from "@/components/app/use-action";
 import { createEvent, updateEvent } from "@/server/actions/work";
-import { todayISO } from "@/lib/dates";
+import { todayISO, weekdayISO } from "@/lib/dates";
 
 export interface EventDraft {
   id?: string;
@@ -76,7 +76,7 @@ export function EventDialog({ open, onOpenChange, initial, lockMatter }: { open:
             </Field>
           ) : null}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Field label={t("date")} htmlFor="ev-date">
+            <Field label={t("date")} htmlFor="ev-date" error={form.date && [0, 6].includes(weekdayISO(form.date)) ? t("weekendWarning") : undefined}>
               <Input id="ev-date" type="date" required value={form.date} onChange={(e) => set("date", e.target.value)} />
             </Field>
             <Field label={t("time")} htmlFor="ev-time" hint={t("timeHint")}>

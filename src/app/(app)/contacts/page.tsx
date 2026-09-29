@@ -26,7 +26,21 @@ export default async function ContactsPage(props: PageProps<"/contacts">) {
       <ContactsFilter count={rows.length} />
       {rows.length ? (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-border md:hidden">
+            {rows.map((c) => (
+              <li key={c.id}>
+                <Link href={`/contacts/${c.id}`} className="flex items-center gap-3 px-4 py-3 active:bg-surface-2">
+                  <Avatar name={c.displayName} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{c.displayName}</div>
+                    <div className="truncate text-xs text-muted">{[c.phone, c.email].filter(Boolean).join(" · ")}</div>
+                  </div>
+                  <span className="text-xs text-muted">{c.matterCount}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-2/50 text-left text-xs text-muted">

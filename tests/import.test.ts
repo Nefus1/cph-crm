@@ -103,3 +103,18 @@ describe("money", () => {
     expect(ledgerTotals([{ kind: "charge", amountCents: 180000 }, { kind: "payment", amountCents: 80000 }, { kind: "adjustment", amountCents: -10000 }]).balance).toBe(90000);
   });
 });
+
+import { contactInput, intakeInput } from "@/server/schemas";
+
+describe("schemas", () => {
+  it("contact input can be parsed twice (intake re-validates nested contacts)", () => {
+    const once = contactInput.parse({ firstName: "A", lastName: "B", dateOfBirth: "" });
+    expect(once.dateOfBirth).toBeNull();
+    expect(() => contactInput.parse(once)).not.toThrow();
+  });
+  it("intake input accepts a minimal new client", () => {
+    const r = intakeInput.parse({ client: { contact: { firstName: "Dbg", lastName: "Test", dateOfBirth: "" } }, matter: { practiceArea: "ud", matterType: "30day", side: "plaintiff", openedOn: "2026-09-29", assigneeId: null } });
+    expect(r.matter.status).toBe("active");
+    expect(r.client.contact?.dateOfBirth).toBeNull();
+  });
+});

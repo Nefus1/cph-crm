@@ -76,7 +76,8 @@
     "system_entry": "System entries can't be deleted.",
     "cannot_demote_self": "You can't remove your own admin access.",
     "drive_error": "Couldn't create the Drive folder.",
-    "sync_error": "Couldn't sync with Google Calendar."
+    "sync_error": "Couldn't sync with Google Calendar.",
+    "invalid_input": "Some information is missing or invalid. Please check the form."
   },
   "tasks": {
     "title": "Task",
@@ -157,7 +158,8 @@
     "retrySync": "Retry calendar sync",
     "markDone": "Mark done",
     "markedDone": "Marked done",
-    "reopen": "Mark as scheduled"
+    "reopen": "Mark as scheduled",
+    "weekendWarning": "Falls on a weekend — courts are closed"
   },
   "timeline": {
     "logTitle": "Log activity",
@@ -429,7 +431,10 @@
     "driveNotReady": "Connect Google Drive in Settings to create folders automatically.",
     "create": "Create matter",
     "created": "Matter created",
-    "summary": "Summary"
+    "summary": "Summary",
+    "linked": "existing contact",
+    "unlink": "Unlink",
+    "useExisting": "Use an existing contact"
   },
   "contacts": {
     "title": "Clients & contacts",

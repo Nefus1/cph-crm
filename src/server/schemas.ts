@@ -3,10 +3,7 @@ import { PRACTICE_AREAS } from "@/config/practice-areas";
 
 const trimmed = (max = 500) => z.string().trim().max(max);
 const optionalDate = z
-  .string()
-  .trim()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .or(z.literal(""))
+  .union([z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal(""), z.null()])
   .optional()
   .transform((v) => (v ? v : null));
 const requiredDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");

@@ -14,7 +14,26 @@ export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale:
   const t = await getTranslations("matters");
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Phones: compact cards */}
+      <ul className="divide-y divide-border md:hidden">
+        {rows.map((r) => (
+          <li key={r.id}>
+            <Link href={`/matters/${r.id}`} className="flex items-start gap-3 px-4 py-3 active:bg-surface-2">
+              <AreaBadge area={r.practiceArea} locale={locale} className="mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{r.displayName}</div>
+                <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
+                  <span>{stageLabel(r.practiceArea, r.side, r.stage, locale)}</span>
+                  {r.caseNumber ? <span className="font-mono">{r.caseNumber}</span> : null}
+                  {r.nextDate ? <span>{formatDate(r.nextDate, locale, { month: "short", day: "numeric", year: undefined })}</span> : null}
+                </div>
+              </div>
+              {r.balance > 0 ? <span className="text-sm font-medium tabular-nums">{formatCents(r.balance, locale)}</span> : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-2/50 text-left text-xs font-medium text-muted">

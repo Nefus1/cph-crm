@@ -4,6 +4,10 @@ export function fail(error: unknown): { ok: false; error: string } {
   if (error instanceof Error) {
     // Redirects thrown by requireStaff must propagate
     if ("digest" in error && typeof (error as { digest?: string }).digest === "string" && (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")) throw error;
+    if (error.name === "ZodError") {
+      console.warn("Validation failed:", error.message);
+      return { ok: false, error: "invalid_input" };
+    }
     return { ok: false, error: error.message };
   }
   return { ok: false, error: String(error) };

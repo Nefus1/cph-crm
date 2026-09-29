@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { activities, checklistItems, contacts, events, ledgerEntries, matterParties, matters, staff, tasks } from "@/db/schema";
 import { todayISO } from "@/lib/dates";
-import { balanceSql, likePattern, nextEventSql, primaryClientIdSql, primaryClientSql } from "./common";
+import { balanceSql, likePattern, nextEventSql, primaryClientIdSql, primaryClientSql, tokensMatch } from "./common";
 
 export interface MatterFilters {
   area?: string;
@@ -27,10 +27,11 @@ export async function listMatters(f: MatterFilters = {}) {
   else if (f.assignee) where.push(eq(m.assigneeId, f.assignee));
   if (f.stage) where.push(eq(m.stage, f.stage));
   if (f.q) {
-    const p = likePattern(f.q.trim());
-    where.push(sql`(f_unaccent(${m.displayName}) ilike f_unaccent(${p}) or f_unaccent(${m.caption}) ilike f_unaccent(${p})
+    const q = f.q.trim();
+    const p = likePattern(q);
+    where.push(sql`((${tokensMatch(m.displayName, q)}) or (${tokensMatch(m.caption, q)})
       or ${m.caseNumber} ilike ${p} or ${m.number} ilike ${p}
-      or exists (select 1 from matter_parties mp join contacts c on c.id = mp.contact_id where mp.matter_id = ${m.id} and f_unaccent(c.display_name) ilike f_unaccent(${p})))`);
+      or exists (select 1 from matter_parties mp join contacts c on c.id = mp.contact_id where mp.matter_id = ${m.id} and (${tokensMatch(sql`c.display_name`, q)})))`);
   }
   if (f.balance) where.push(sql`${balanceSql(sql`${m.id}`)} > 0`);
 
