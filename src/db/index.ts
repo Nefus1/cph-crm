@@ -7,7 +7,8 @@ function create() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
   // prepare: false keeps us compatible with Supabase's transaction pooler (port 6543).
-  const client = postgres(url, { prepare: false, max: process.env.VERCEL ? 1 : 5 });
+  // connect_timeout makes a wrong DATABASE_URL fail fast with a clear error instead of hanging.
+  const client = postgres(url, { prepare: false, max: process.env.VERCEL ? 1 : 5, connect_timeout: 10, idle_timeout: 20 });
   return drizzle(client, { schema });
 }
 
