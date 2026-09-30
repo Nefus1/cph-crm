@@ -5,7 +5,7 @@ This guide takes you from nothing to a live CRM your team can sign in to. Plan o
 | Service | What it does | Cost |
 | --- | --- | --- |
 | **Supabase** | The database and Google sign-in | Free to start. **Pro, $25/mo**, is recommended for daily backups of client data. |
-| **Vercel** | Hosts the app at a web address | **Pro, $20/mo**. The free Hobby plan is for non-commercial use only, and Pro also runs the 15-minute calendar re-sync. |
+| **Vercel** | Hosts the app at a web address | **Pro, $20/mo**. The free Hobby plan is for non-commercial use only. (A daily background re-sync retries any calendar pushes that failed; dates normally sync the moment they are saved.) |
 | **Google Cloud** | Lets the CRM create Drive folders and calendar events | Free |
 
 Only the owner needs Vercel and Supabase accounts. Staff just sign in to the CRM with their Google account.
