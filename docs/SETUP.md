@@ -35,8 +35,16 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
    - Google Calendar API
    - Google Sheets API
 3. **Google Auth Platform** (older consoles call this "OAuth consent screen"):
-   - **Branding:** app name `CPH CRM`, support email `you@yourfirm.com`.
-   - **Audience:** User type **External**, then click **Publish app** so it is **In production**.
+   - **Branding:** app name `CPH CRM`, support email `you@yourfirm.com`, developer contact `you@yourfirm.com`.
+     - Leave the **logo empty**. Uploading one forces a Google review.
+     - Google won't let you publish without a homepage and privacy policy link. Those pages live on the CRM itself, so fill them in once Vercel is deployed (step 3):
+       - Application home page: `https://<your-app>.vercel.app`
+       - Privacy policy: `https://<your-app>.vercel.app/privacy`
+       - Terms of service: `https://<your-app>.vercel.app/terms`
+       - Authorized domains: `<your-app>.vercel.app`
+   - **Audience:** User type **External**.
+     - Until the Vercel site exists, leave it in **Testing** and add `you@yourfirm.com` (and staff emails) under **Test users**.
+     - After filling in the Branding links, click **Publish app** so it is **In production**.
      - This matters. In "Testing" mode, Google disconnects Drive and Calendar every 7 days.
      - You'll see an "unverified app" warning once when you connect. Click **Advanced → Go to CPH CRM**. That's expected for a private firm tool.
    - **Data access:** add these scopes:

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { getCurrentStaff } from "@/lib/auth";
@@ -10,6 +11,7 @@ export const metadata = { title: "Sign in" };
 export default async function LoginPage(props: PageProps<"/login">) {
   const sp = await props.searchParams;
   const t = await getTranslations("auth");
+  const tl = await getTranslations("legal");
   if (devAuthBypass() || (supabaseConfigured() && (await getCurrentStaff().catch(() => null)))) redirect("/");
   const next = typeof sp.next === "string" ? sp.next : "/";
 
@@ -32,6 +34,14 @@ export default async function LoginPage(props: PageProps<"/login">) {
             <p className="text-sm text-muted">{t("notConfigured")}</p>
           )}
           <p className="mt-4 text-center text-xs text-muted">{t("inviteOnly")}</p>
+        </div>
+        <div className="mt-6 flex justify-center gap-4 text-xs text-muted">
+          <Link href="/privacy" className="hover:text-foreground">
+            {tl("privacy")}
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            {tl("terms")}
+          </Link>
         </div>
       </div>
     </main>

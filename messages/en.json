@@ -761,5 +761,37 @@
     },
     "howComputed": "How this was computed",
     "disclaimer": "Uses CCP §§12, 12a, 1013, 1161, 1167 and the court holidays in Settings. Always confirm against the statute, the proof of service and LASC's calendar."
+  },
+  "legal": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use",
+    "updated": "Last updated: September 30, 2026",
+    "backToSignIn": "Back to sign in",
+    "p": {
+      "intro": "CPH CRM is a private, internal tool used by the staff of Centro Para Legal Hispano (\"CPH\", \"we\") to manage clients, cases, hearings and deadlines. This policy explains what information the app handles and how it is protected.",
+      "whoTitle": "Who we are",
+      "who": "Centro Para Legal Hispano, Los Angeles County, California. Contact: you@yourfirm.com.",
+      "dataTitle": "Information we handle",
+      "data": "Staff enter client and case information such as names, contact details, case numbers, court dates, notes, and fees and payments. Staff sign in with their Google account; we store their name and email address to control access.",
+      "googleTitle": "How we use Google data",
+      "google": "With the firm's authorization, the app connects to the firm's own Google account to: create and list case folders in Google Drive; create, update and remove hearing and deadline events on the firm's Google Calendar; and read the firm's intake spreadsheet in Google Sheets for a one-time import. The app only accesses the firm's own files and calendars for these purposes.",
+      "limitedTitle": "Limited use",
+      "limited": "CPH CRM's use and transfer of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. Google data is never sold, never used for advertising, and never shared with third parties except the hosting providers needed to run the app.",
+      "storageTitle": "Storage and security",
+      "storage": "Data is stored in an encrypted database hosted by Supabase and served by Vercel, both in the United States. Access is limited to staff invited by a CPH administrator. Google access tokens are encrypted at rest.",
+      "rightsTitle": "Access, deletion and revocation",
+      "rights": "Clients may ask CPH to review or correct their information by contacting us. The firm can revoke the app's access to its Google account at any time at myaccount.google.com/permissions, and may ask us to delete stored data.",
+      "changesTitle": "Changes",
+      "changes": "We may update this policy. The date above shows the latest version."
+    },
+    "t": {
+      "intro": "CPH CRM is provided by Centro Para Legal Hispano for internal use by its authorized staff only.",
+      "useTitle": "Authorized use",
+      "use": "Only people invited by a CPH administrator may sign in. Accounts may be deactivated at any time. Users must keep client information confidential and use the app only for CPH business.",
+      "noAdviceTitle": "No legal advice",
+      "noAdvice": "Calculated dates and other tools in the app are aids for staff and must be verified against the applicable law, court rules and records. They are not legal advice.",
+      "contactTitle": "Contact",
+      "contact": "Questions: you@yourfirm.com."
+    }
   }
 }

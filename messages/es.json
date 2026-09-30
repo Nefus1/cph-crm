@@ -761,5 +761,37 @@
     },
     "howComputed": "Cómo se calculó",
     "disclaimer": "Usa CCP §§12, 12a, 1013, 1161, 1167 y los feriados de la corte en Configuración. Confirme siempre con el código, el comprobante de entrega y el calendario de LASC."
+  },
+  "legal": {
+    "privacy": "Política de privacidad",
+    "terms": "Términos de uso",
+    "updated": "Última actualización: 30 de septiembre de 2026",
+    "backToSignIn": "Volver a iniciar sesión",
+    "p": {
+      "intro": "CPH CRM es una herramienta privada e interna que usa el personal de Centro Para Legal Hispano (\"CPH\", \"nosotros\") para administrar clientes, casos, audiencias y plazos. Esta política explica qué información maneja la aplicación y cómo se protege.",
+      "whoTitle": "Quiénes somos",
+      "who": "Centro Para Legal Hispano, Condado de Los Ángeles, California. Contacto: you@yourfirm.com.",
+      "dataTitle": "Información que manejamos",
+      "data": "El personal registra información de clientes y casos, como nombres, datos de contacto, números de caso, fechas de corte, notas, honorarios y pagos. El personal entra con su cuenta de Google; guardamos su nombre y correo para controlar el acceso.",
+      "googleTitle": "Cómo usamos los datos de Google",
+      "google": "Con la autorización de la oficina, la aplicación se conecta a la cuenta de Google de la propia oficina para: crear y listar carpetas de casos en Google Drive; crear, actualizar y eliminar eventos de audiencias y plazos en el Google Calendar de la oficina; y leer la hoja de admisión de la oficina en Google Sheets para una importación única. La aplicación solo accede a los archivos y calendarios de la oficina para estos fines.",
+      "limitedTitle": "Uso limitado",
+      "limited": "El uso y la transferencia de información recibida de las API de Google por parte de CPH CRM cumple con la Política de Datos de Usuario de los Servicios de API de Google, incluidos los requisitos de Uso Limitado. Los datos de Google nunca se venden, nunca se usan para publicidad y nunca se comparten con terceros, salvo los proveedores de hospedaje necesarios para operar la aplicación.",
+      "storageTitle": "Almacenamiento y seguridad",
+      "storage": "Los datos se guardan en una base de datos cifrada alojada por Supabase y servida por Vercel, ambos en Estados Unidos. El acceso está limitado al personal invitado por un administrador de CPH. Los tokens de acceso de Google se guardan cifrados.",
+      "rightsTitle": "Acceso, eliminación y revocación",
+      "rights": "Los clientes pueden pedir a CPH revisar o corregir su información comunicándose con nosotros. La oficina puede revocar en cualquier momento el acceso de la aplicación a su cuenta de Google en myaccount.google.com/permissions y puede pedirnos eliminar los datos guardados.",
+      "changesTitle": "Cambios",
+      "changes": "Podemos actualizar esta política. La fecha de arriba indica la versión más reciente."
+    },
+    "t": {
+      "intro": "CPH CRM es proporcionado por Centro Para Legal Hispano solo para uso interno de su personal autorizado.",
+      "useTitle": "Uso autorizado",
+      "use": "Solo pueden entrar las personas invitadas por un administrador de CPH. Las cuentas pueden desactivarse en cualquier momento. Los usuarios deben mantener confidencial la información de los clientes y usar la aplicación solo para asuntos de CPH.",
+      "noAdviceTitle": "No es asesoría legal",
+      "noAdvice": "Las fechas calculadas y otras herramientas de la aplicación son ayudas para el personal y deben verificarse con la ley, las reglas de la corte y los registros aplicables. No constituyen asesoría legal.",
+      "contactTitle": "Contacto",
+      "contact": "Preguntas: you@yourfirm.com."
+    }
   }
 }
