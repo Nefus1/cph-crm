@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { staff } from "@/db/schema";
 import { withTimeout } from "@/lib/with-timeout";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,15 @@ export async function GET(request: NextRequest) {
         hint: "The staff table is locked by a stuck database session. In Supabase → SQL Editor run: select pg_terminate_backend(pid) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() and state <> 'idle'; then reload this page.",
       };
     }
+    // The exact ORM query sign-in uses.
+    const t1 = Date.now();
+    try {
+      await withTimeout(db.query.staff.findFirst({ where: eq(staff.email, "health-check") }), 6000, "timed out after 6 seconds");
+      report.staffLookup = { ok: true, ms: Date.now() - t1 };
+    } catch (err) {
+      const e = err as { message?: string; cause?: { message?: string } };
+      report.staffLookup = { ok: false, ms: Date.now() - t1, error: e?.cause?.message || e?.message || String(err) };
+    }
     try {
       const stuck = await withTimeout(
         db.execute<{ pid: number; state: string; seconds: number; query: string }>(sql`
@@ -97,6 +107,7 @@ export async function GET(request: NextRequest) {
 
   report.APP_URL = process.env.APP_URL ?? null;
   report.ok =
-    (report.database as { ok: boolean }).ok && (report.supabaseAuth as { ok: boolean }).ok && (report.staffTable as { ok?: boolean } | undefined)?.ok !== false;
+    (report.database as { ok: boolean }).ok && (report.supabaseAuth as { ok: boolean }).ok && (report.staffTable as { ok?: boolean } | undefined)?.ok !== false &&
+    (report.staffLookup as { ok?: boolean } | undefined)?.ok !== false;
   return NextResponse.json(report, { headers: { "cache-control": "no-store" } });
 }

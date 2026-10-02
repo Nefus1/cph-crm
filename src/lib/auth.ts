@@ -3,7 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, resetDb } from "@/db";
 import { staff, type Staff } from "@/db/schema";
 import { devAuthBypass } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -14,7 +14,11 @@ const DB_TIMEOUT_MESSAGE = "The database did not respond. Check DATABASE_URL (op
 
 async function resolveStaff(email: string, userId: string | null, fullName: string): Promise<Staff | null> {
   const normalized = email.trim().toLowerCase();
+  const t0 = Date.now();
+  const step = (name: string) => console.log(`auth: ${name} ${Date.now() - t0}ms`);
+
   let row = await db.query.staff.findFirst({ where: eq(staff.email, normalized) });
+  step("lookup");
 
   if (!row) {
     // Bootstrap: the configured owner becomes the first admin automatically.
@@ -26,6 +30,7 @@ async function resolveStaff(email: string, userId: string | null, fullName: stri
         .onConflictDoNothing()
         .returning();
       row = created ?? (await db.query.staff.findFirst({ where: eq(staff.email, normalized) }));
+      step("bootstrap-admin");
     }
   }
   if (!row || !row.active) return null;
@@ -35,12 +40,29 @@ async function resolveStaff(email: string, userId: string | null, fullName: stri
       .update(staff)
       .set({ userId: userId ?? row.userId, name: row.name || fullName })
       .where(eq(staff.id, row.id));
+    step("link-account");
   }
-  // Touch last_seen at most every 10 minutes
+  // Touch last_seen at most every 10 minutes. Not awaited: a slow write must never block a page.
   if (!row.lastSeenAt || Date.now() - row.lastSeenAt.getTime() > 10 * 60_000) {
-    await db.update(staff).set({ lastSeenAt: sql`now()` }).where(and(eq(staff.id, row.id)));
+    db.update(staff)
+      .set({ lastSeenAt: sql`now()` })
+      .where(and(eq(staff.id, row.id)))
+      .catch((err) => console.warn("auth: last_seen update failed", err instanceof Error ? err.message : err));
   }
   return row;
+}
+
+/** Runs the staff lookup with a timeout; on timeout, drops the DB pool so the next request starts clean. */
+async function resolveWithTimeout(email: string, userId: string | null, fullName: string) {
+  try {
+    return await withTimeout(resolveStaff(email, userId, fullName), DB_TIMEOUT_MS, DB_TIMEOUT_MESSAGE);
+  } catch (err) {
+    if (err instanceof Error && err.message === DB_TIMEOUT_MESSAGE) {
+      console.error("auth: staff lookup timed out — resetting database pool");
+      resetDb();
+    }
+    throw err;
+  }
 }
 
 /** Current signed-in staff member, or null. Memoized per request. */
@@ -49,7 +71,7 @@ export const getCurrentStaff = cache(async (): Promise<Staff | null> => {
   await connection();
   if (devAuthBypass()) {
     const email = process.env.DEV_AUTH_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || "dev@example.com";
-    return withTimeout(resolveStaff(email, null, "Dev User"), DB_TIMEOUT_MS, DB_TIMEOUT_MESSAGE);
+    return resolveWithTimeout(email, null, "Dev User");
   }
   const supabase = await createSupabaseServerClient();
   const {
@@ -57,7 +79,7 @@ export const getCurrentStaff = cache(async (): Promise<Staff | null> => {
   } = await withTimeout(supabase.auth.getUser(), DB_TIMEOUT_MS, "Supabase sign-in service did not respond. Check NEXT_PUBLIC_SUPABASE_URL.");
   if (!user?.email) return null;
   const meta = (user.user_metadata ?? {}) as { full_name?: string; name?: string };
-  return withTimeout(resolveStaff(user.email, user.id, meta.full_name || meta.name || ""), DB_TIMEOUT_MS, DB_TIMEOUT_MESSAGE);
+  return resolveWithTimeout(user.email, user.id, meta.full_name || meta.name || "");
 });
 
 /** For pages and server actions: redirects if not signed in / not invited. */
