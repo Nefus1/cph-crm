@@ -1,4 +1,5 @@
 import { requireStaff } from "@/lib/auth";
+import { logged } from "@/lib/logged";
 import { getLocale } from "next-intl/server";
 import { AppDataProvider } from "@/components/app/app-data";
 import { QuickActionsProvider } from "@/components/app/quick-actions";
@@ -9,7 +10,12 @@ import { getSettings } from "@/server/queries/settings";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const me = await requireStaff();
-  const [staffList, matters, settings, locale] = await Promise.all([listActiveStaff(), matterOptions(), getSettings(), getLocale()]);
+  const [staffList, matters, settings, locale] = await Promise.all([
+    logged("layout.staff", listActiveStaff()),
+    logged("layout.matterOptions", matterOptions()),
+    logged("layout.settings", getSettings()),
+    getLocale(),
+  ]);
   return (
     <AppDataProvider
       value={{

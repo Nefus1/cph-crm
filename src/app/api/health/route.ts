@@ -3,6 +3,10 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { staff } from "@/db/schema";
 import { withTimeout } from "@/lib/with-timeout";
+import { listActiveStaff } from "@/server/queries/staff";
+import { matterOptions } from "@/server/queries/matters";
+import { getSettings } from "@/server/queries/settings";
+import { dashboard } from "@/server/queries/work";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +95,29 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ?page=1 — run the signed-in layout + Today page reads concurrently, like a real page load.
+  if (request.nextUrl.searchParams.get("page") === "1" && (report.database as { ok: boolean }).ok) {
+    const admin = await db.query.staff.findFirst({ where: eq(staff.role, "admin") }).catch(() => undefined);
+    const timed = async (name: string, p: () => Promise<unknown>) => {
+      const t = Date.now();
+      try {
+        await withTimeout(p(), 7000, "timed out after 7 seconds");
+        return [name, { ok: true, ms: Date.now() - t }] as const;
+      } catch (err) {
+        const e = err as { message?: string; cause?: { message?: string } };
+        return [name, { ok: false, ms: Date.now() - t, error: e?.cause?.message || e?.message || String(err) }] as const;
+      }
+    };
+    const results = await Promise.all([
+      timed("staff", () => listActiveStaff()),
+      timed("matterOptions", () => matterOptions()),
+      timed("settings", () => getSettings()),
+      timed("dashboard", () => dashboard(admin?.id ?? "00000000-0000-0000-0000-000000000000")),
+    ]);
+    report.pageLoad = Object.fromEntries(results);
+    report.pool = { port: describeUrl("DATABASE_URL").port ?? null, maxConnections: !process.env.VERCEL ? 5 : describeUrl("DATABASE_URL").port === "6543" ? 1 : 3 };
+  }
+
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (supaUrl) {
     try {
@@ -108,6 +135,7 @@ export async function GET(request: NextRequest) {
   report.APP_URL = process.env.APP_URL ?? null;
   report.ok =
     (report.database as { ok: boolean }).ok && (report.supabaseAuth as { ok: boolean }).ok && (report.staffTable as { ok?: boolean } | undefined)?.ok !== false &&
-    (report.staffLookup as { ok?: boolean } | undefined)?.ok !== false;
+    (report.staffLookup as { ok?: boolean } | undefined)?.ok !== false &&
+    !Object.values((report.pageLoad as Record<string, { ok: boolean }> | undefined) ?? {}).some((r) => !r.ok);
   return NextResponse.json(report, { headers: { "cache-control": "no-store" } });
 }
