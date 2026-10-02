@@ -770,7 +770,7 @@
     "p": {
       "intro": "CPH CRM is a private, internal tool used by the staff of Centro Para Legal Hispano (\"CPH\", \"we\") to manage clients, cases, hearings and deadlines. This policy explains what information the app handles and how it is protected.",
       "whoTitle": "Who we are",
-      "who": "Centro Para Legal Hispano, Los Angeles County, California. Contact: you@yourfirm.com.",
+      "who": "Centro Para Legal Hispano, Los Angeles County, California. Contact CPH.",
       "dataTitle": "Information we handle",
       "data": "Staff enter client and case information such as names, contact details, case numbers, court dates, notes, and fees and payments. Staff sign in with their Google account; we store their name and email address to control access.",
       "googleTitle": "How we use Google data",
@@ -791,7 +791,7 @@
       "noAdviceTitle": "No legal advice",
       "noAdvice": "Calculated dates and other tools in the app are aids for staff and must be verified against the applicable law, court rules and records. They are not legal advice.",
       "contactTitle": "Contact",
-      "contact": "Questions: you@yourfirm.com."
+      "contact": "Questions: contact CPH."
     }
   }
 }

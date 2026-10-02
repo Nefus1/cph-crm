@@ -27,7 +27,7 @@ Only the owner needs Vercel and Supabase accounts. Staff just sign in to the CRM
 
 ## 2. Google Cloud (sign-in + Drive + Calendar)
 
-Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the account that owns `1A CPH FOLDER` and the "Hearings and Deadlines" calendar.
+Sign in to <https://console.cloud.google.com> with **your firm's Google account**, the one that owns `1A CPH FOLDER` and the "Hearings and Deadlines" calendar.
 
 1. Create a project named `CPH CRM`.
 2. **APIs & Services → Library**. Enable these three APIs:
@@ -35,7 +35,7 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
    - Google Calendar API
    - Google Sheets API
 3. **Google Auth Platform** (older consoles call this "OAuth consent screen"):
-   - **Branding:** app name `CPH CRM`, support email `you@yourfirm.com`, developer contact `you@yourfirm.com`.
+   - **Branding:** app name `CPH CRM`, support email and developer contact: your firm email.
      - Leave the **logo empty**. Uploading one forces a Google review.
      - Google won't let you publish without a homepage and privacy policy link. Those pages live on the CRM itself, so fill them in once Vercel is deployed (step 3):
        - Application home page: `https://<your-app>.vercel.app`
@@ -43,7 +43,7 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
        - Terms of service: `https://<your-app>.vercel.app/terms`
        - Authorized domains: `<your-app>.vercel.app`
    - **Audience:** User type **External**.
-     - Until the Vercel site exists, leave it in **Testing** and add `you@yourfirm.com` (and staff emails) under **Test users**.
+     - Until the Vercel site exists, leave it in **Testing** and add your own email (and staff emails) under **Test users**.
      - After filling in the Branding links, click **Publish app** so it is **In production**.
      - This matters. In "Testing" mode, Google disconnects Drive and Calendar every 7 days.
      - You'll see an "unverified app" warning once when you connect. Click **Advanced → Go to CPH CRM**. That's expected for a private firm tool.
@@ -73,7 +73,7 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
    | `DIRECT_DATABASE_URL` | The same Session pooler string |
    | `NEXT_PUBLIC_SUPABASE_URL` | From Supabase → API |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | From Supabase → API |
-   | `BOOTSTRAP_ADMIN_EMAIL` | `you@yourfirm.com` |
+   | `BOOTSTRAP_ADMIN_EMAIL` | Your Google email (e.g. `you@yourfirm.com`) |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From Google Cloud |
    | `ENCRYPTION_KEY` | 64 random hex characters. On a Mac or Linux, run `openssl rand -hex 32` and paste the result. |
    | `CRON_SECRET` | Any long random string, e.g. another `openssl rand -hex 32` |
@@ -91,7 +91,7 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
 
 ## 4. First sign-in checklist
 
-1. Open the app and click **Continue with Google** as **you@yourfirm.com**. You become the first admin automatically.
+1. Open the app and click **Continue with Google** using the `BOOTSTRAP_ADMIN_EMAIL` account. You become the first admin automatically.
 2. **Settings → Google → Connect Google.** Approve the Drive and Calendar access.
 3. **Choose the Cases folder:** browse to `1A CPH FOLDER → Cases` and click **Use "Cases"**.
 4. **Choose the calendar:** pick **Hearings and Deadlines**.
