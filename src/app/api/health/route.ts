@@ -48,6 +48,39 @@ export async function GET(request: NextRequest) {
     report.database = { ok: false, ms: Date.now() - started, error: message, hint };
   }
 
+  if ((report.database as { ok: boolean }).ok) {
+    // Reading the CRM tables (what sign-in does). A hang here while `select 1` works means
+    // another session holds a lock — usually a migration that was cut off mid-transaction.
+    const t0 = Date.now();
+    try {
+      await withTimeout(db.execute(sql`select id from staff where email = ${"health-check"} limit 1`), 6000, "timed out after 6 seconds");
+      report.staffTable = { ok: true, ms: Date.now() - t0 };
+    } catch (err) {
+      const e = err as { message?: string; cause?: { message?: string } };
+      report.staffTable = {
+        ok: false,
+        ms: Date.now() - t0,
+        error: e?.cause?.message || e?.message || String(err),
+        hint: "The staff table is locked by a stuck database session. In Supabase → SQL Editor run: select pg_terminate_backend(pid) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() and state <> 'idle'; then reload this page.",
+      };
+    }
+    try {
+      const stuck = await withTimeout(
+        db.execute<{ pid: number; state: string; seconds: number; query: string }>(sql`
+          select pid, state, extract(epoch from now() - coalesce(xact_start, query_start))::int as seconds, left(query, 120) as query
+          from pg_stat_activity
+          where datname = current_database() and pid <> pg_backend_pid() and state <> 'idle'
+            and coalesce(xact_start, query_start) < now() - interval '5 seconds'
+          order by seconds desc limit 10`),
+        5000,
+        "timed out",
+      );
+      report.stuckSessions = [...stuck];
+    } catch (err) {
+      report.stuckSessions = { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (supaUrl) {
     try {
@@ -63,6 +96,7 @@ export async function GET(request: NextRequest) {
   } else report.supabaseAuth = { ok: false, error: "NEXT_PUBLIC_SUPABASE_URL is not set" };
 
   report.APP_URL = process.env.APP_URL ?? null;
-  report.ok = (report.database as { ok: boolean }).ok && (report.supabaseAuth as { ok: boolean }).ok;
+  report.ok =
+    (report.database as { ok: boolean }).ok && (report.supabaseAuth as { ok: boolean }).ok && (report.staffTable as { ok?: boolean } | undefined)?.ok !== false;
   return NextResponse.json(report, { headers: { "cache-control": "no-store" } });
 }
