@@ -7,6 +7,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
+  // Supabase sends people to the Site URL (/?code=…) when /auth/callback isn't in its
+  // Redirect URLs allow-list. Forward the code to the callback so sign-in still completes.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && pathname !== "/auth/callback" && !pathname.startsWith("/api/")) {
+    const url = new URL("/auth/callback", request.url);
+    url.searchParams.set("code", code);
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
   if (process.env.DEV_AUTH_BYPASS === "true" && process.env.VERCEL !== "1") return NextResponse.next();
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return isPublic ? NextResponse.next() : NextResponse.redirect(new URL("/login", request.url));

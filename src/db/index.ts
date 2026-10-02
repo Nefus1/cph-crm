@@ -9,9 +9,17 @@ function create() {
   // prepare: false keeps us compatible with Supabase's transaction pooler (port 6543).
   // connect_timeout makes a wrong DATABASE_URL fail fast instead of hanging; a small pool with a
   // short lifetime keeps one slow or dead connection from blocking every request on a Vercel instance.
+  // Supabase's transaction pooler (port 6543) stalls when postgres.js pipelines concurrent
+  // queries over one connection, so there we use a single connection (queries run one at a
+  // time). The session pooler (port 5432, recommended) handles a small pool normally.
+  let port = "";
+  try {
+    port = new URL(url).port;
+  } catch {}
+  const max = !process.env.VERCEL ? 5 : port === "6543" ? 1 : 3;
   const client = postgres(url, {
     prepare: false,
-    max: process.env.VERCEL ? 3 : 5,
+    max,
     connect_timeout: 10,
     idle_timeout: 10,
     max_lifetime: 60 * 5,

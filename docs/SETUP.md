@@ -17,9 +17,9 @@ Only the owner needs Vercel and Supabase accounts. Staff just sign in to the CRM
 1. Go to <https://supabase.com>, sign up, and click **New project**.
    - Name: `cph-crm`. Region: **West US (North California)**.
    - Save the database password somewhere safe.
-2. When the project is ready, click **Connect** at the top of the page. Copy two connection strings, replacing `[YOUR-PASSWORD]` with your password in each:
-   - **Transaction pooler** (port **6543**) → this is `DATABASE_URL`
-   - **Session pooler** (port **5432**) → this is `DIRECT_DATABASE_URL`
+2. When the project is ready, click **Connect** at the top of the page. Copy the **Session pooler** string (host ends in `pooler.supabase.com`, port **5432**) and replace `[YOUR-PASSWORD]`, including the brackets, with your database password. Use a password with only letters and numbers; symbols break the link.
+   - Use this same string for **both** `DATABASE_URL` and `DIRECT_DATABASE_URL`.
+   - Don't use the Transaction pooler (port 6543) or the `db.<ref>.supabase.co` direct host. The pages make several queries at once and stall on the transaction pooler, and Vercel can't reach the direct host.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -69,8 +69,8 @@ Sign in to <https://console.cloud.google.com> as **you@yourfirm.com**, the accou
 
    | Name | Value |
    | --- | --- |
-   | `DATABASE_URL` | Transaction pooler string (port 6543) |
-   | `DIRECT_DATABASE_URL` | Session pooler string (port 5432) |
+   | `DATABASE_URL` | Session pooler string (port 5432) |
+   | `DIRECT_DATABASE_URL` | The same Session pooler string |
    | `NEXT_PUBLIC_SUPABASE_URL` | From Supabase → API |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | From Supabase → API |
    | `BOOTSTRAP_ADMIN_EMAIL` | `you@yourfirm.com` |

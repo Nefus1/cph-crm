@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     const e = err as { message?: string; cause?: { message?: string; code?: string } };
     const message = e?.cause?.message || e?.message || String(err);
-    let hint = "Copy DIRECT_DATABASE_URL into DATABASE_URL, change :5432 to :6543, save, and redeploy.";
+    let hint = "Copy DIRECT_DATABASE_URL (Session pooler, port 5432) into DATABASE_URL, save, and redeploy.";
     if (/password authentication failed/i.test(message)) hint = "Wrong password inside DATABASE_URL. Use the same password as DIRECT_DATABASE_URL (the build connects with that one).";
-    else if (/tenant or user not found/i.test(message)) hint = "The user must be postgres.<project-ref> and the host must match your project's region (copy it from Supabase → Connect → Transaction pooler).";
-    else if (/timed out|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH/i.test(message)) hint = "The host can't be reached. Use the Transaction pooler host (…pooler.supabase.com, port 6543), not db.<ref>.supabase.co.";
+    else if (/tenant or user not found/i.test(message)) hint = "The user must be postgres.<project-ref> and the host must match your project's region (copy it from Supabase → Connect → Session pooler).";
+    else if (/timed out|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH/i.test(message)) hint = "The host can't be reached. Use the Session pooler host (…pooler.supabase.com, port 5432), not db.<ref>.supabase.co.";
     report.database = { ok: false, ms: Date.now() - started, error: message, hint };
   }
 
