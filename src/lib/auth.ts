@@ -7,6 +7,10 @@ import { db } from "@/db";
 import { staff, type Staff } from "@/db/schema";
 import { devAuthBypass } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { withTimeout } from "@/lib/with-timeout";
+
+const DB_TIMEOUT_MS = 8000;
+const DB_TIMEOUT_MESSAGE = "The database did not respond. Check DATABASE_URL (open /api/health?db=1 for details).";
 
 async function resolveStaff(email: string, userId: string | null, fullName: string): Promise<Staff | null> {
   const normalized = email.trim().toLowerCase();
@@ -45,15 +49,15 @@ export const getCurrentStaff = cache(async (): Promise<Staff | null> => {
   await connection();
   if (devAuthBypass()) {
     const email = process.env.DEV_AUTH_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || "dev@example.com";
-    return resolveStaff(email, null, "Dev User");
+    return withTimeout(resolveStaff(email, null, "Dev User"), DB_TIMEOUT_MS, DB_TIMEOUT_MESSAGE);
   }
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await withTimeout(supabase.auth.getUser(), DB_TIMEOUT_MS, "Supabase sign-in service did not respond. Check NEXT_PUBLIC_SUPABASE_URL.");
   if (!user?.email) return null;
   const meta = (user.user_metadata ?? {}) as { full_name?: string; name?: string };
-  return resolveStaff(user.email, user.id, meta.full_name || meta.name || "");
+  return withTimeout(resolveStaff(user.email, user.id, meta.full_name || meta.name || ""), DB_TIMEOUT_MS, DB_TIMEOUT_MESSAGE);
 });
 
 /** For pages and server actions: redirects if not signed in / not invited. */
