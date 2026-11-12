@@ -1,16 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  boolean,
-  date,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -129,10 +118,7 @@ export const matterParties = pgTable(
     notes: text("notes").notNull().default(""),
     createdAt: createdAt(),
   },
-  (t) => [
-    uniqueIndex("matter_parties_unique").on(t.matterId, t.contactId, t.role),
-    index("matter_parties_contact_idx").on(t.contactId),
-  ],
+  (t) => [uniqueIndex("matter_parties_unique").on(t.matterId, t.contactId, t.role), index("matter_parties_contact_idx").on(t.contactId)],
 );
 
 export const checklistItems = pgTable(
@@ -166,10 +152,7 @@ export const tasks = pgTable(
     createdBy: uuid("created_by").references(() => staff.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
-  (t) => [
-    index("tasks_assignee_open_idx").on(t.assigneeId, t.completedAt),
-    index("tasks_matter_idx").on(t.matterId),
-  ],
+  (t) => [index("tasks_assignee_open_idx").on(t.assigneeId, t.completedAt), index("tasks_matter_idx").on(t.matterId)],
 );
 
 /** Hearings, deadlines, and appointments. Pushed one-way to Google Calendar. */
@@ -211,6 +194,8 @@ export const activities = pgTable(
     contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "cascade" }),
     type: text("type").notNull().default("note"),
     body: text("body").notNull().default(""),
+    messageKey: text("message_key"),
+    messageValues: jsonb("message_values").$type<Record<string, string | number>>(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     authorId: uuid("author_id").references(() => staff.id, { onDelete: "set null" }),
     createdAt: createdAt(),
@@ -255,6 +240,10 @@ export const appSettings = pgTable("app_settings", {
   calendarId: text("calendar_id"),
   calendarName: text("calendar_name"),
   defaultSupervisingAttorney: text("default_supervising_attorney").notNull().default(""),
+  folderSetupEnabled: boolean("folder_setup_enabled").notNull().default(false),
+  folderRoot: text("folder_root").notNull().default(""),
+  folderMappingVerifiedAt: timestamp("folder_mapping_verified_at", { withTimezone: true }),
+  folderConnectorId: uuid("folder_connector_id"),
   firmName: text("firm_name").notNull().default("CPH"),
   updatedAt: updatedAt(),
 });
@@ -269,3 +258,75 @@ export type CalEvent = typeof events.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type LedgerEntry = typeof ledgerEntries.$inferSelect;
 export type AppSettings = typeof appSettings.$inferSelect;
+
+/** Partial intakes never create business records until committed. */
+export const intakeDrafts = pgTable("intake_drafts", {
+  id: uuid("id").primaryKey(),
+  payload: jsonb("payload").$type<import("@/lib/intake-draft").DraftPayload>().notNull(),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"),
+  assigneeId: uuid("assignee_id").references(() => staff.id, { onDelete: "set null" }),
+  updatedBy: uuid("updated_by").references(() => staff.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+});
+export const intakeSubmissions = pgTable("intake_submissions", {
+  id: uuid("id").primaryKey(),
+  matterId: uuid("matter_id").references(() => matters.id, { onDelete: "set null" }),
+  reviewedBy: uuid("reviewed_by").references(() => staff.id, { onDelete: "set null" }),
+  conflictContactIds: jsonb("conflict_contact_ids").$type<string[]>().notNull().default([]),
+  createdAt: createdAt(),
+});
+export const folderConnectors = pgTable("folder_connectors", {
+  id: id(),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+export const matterFolders = pgTable(
+  "matter_folders",
+  {
+    id: id(),
+    matterId: uuid("matter_id")
+      .notNull()
+      .references(() => matters.id, { onDelete: "cascade" }),
+    origin: text("origin").notNull(), // managed | legacy
+    relativePath: text("relative_path"),
+    localRoot: text("local_root"),
+    templateVersion: text("template_version"),
+    driveRootId: text("drive_root_id"),
+    driveFolderId: text("drive_folder_id"),
+    driveFolderUrl: text("drive_folder_url"),
+    localStatus: text("local_status").notNull().default("waiting"),
+    discoveryStatus: text("discovery_status").notNull().default("waiting"),
+    discoveryError: text("discovery_error"),
+    discoveryAttempts: integer("discovery_attempts").notNull().default(0),
+    nextDiscoveryAt: timestamp("next_discovery_at", { withTimezone: true }).notNull().defaultNow(),
+    isVerification: boolean("is_verification").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("matter_folders_matter_idx").on(t.matterId)],
+);
+export const folderJobs = pgTable(
+  "folder_jobs",
+  {
+    id: id(),
+    bindingId: uuid("binding_id")
+      .notNull()
+      .unique()
+      .references(() => matterFolders.id, { onDelete: "cascade" }),
+    connectorId: uuid("connector_id")
+      .notNull()
+      .references(() => folderConnectors.id),
+    payload: jsonb("payload").$type<import("@/lib/folders/templates").FolderJobPayload>().notNull(),
+    state: text("state").notNull().default("waiting"),
+    attempts: integer("attempts").notNull().default(0),
+    leaseToken: uuid("lease_token"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    error: text("error"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("folder_jobs_queue_idx").on(t.state, t.nextAttemptAt)],
+);

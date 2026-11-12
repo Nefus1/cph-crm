@@ -1,0 +1,1 @@
+ALTER TABLE "matter_folders" ADD COLUMN "drive_root_id" text;

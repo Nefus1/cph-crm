@@ -30,7 +30,9 @@ export function ConflictResults({ hits, compact }: { hits: ConflictHit[]; compac
               <ul className="mt-2 space-y-1">
                 {h.roles.map((r, i) => (
                   <li key={i} className="flex flex-wrap items-center gap-1.5 text-xs">
-                    <Badge tone={r.role === "client" ? "primary" : ADVERSE_ROLES.has(r.role) ? "danger" : "neutral"}>{optionLabel(PARTY_ROLES, r.role, locale)}</Badge>
+                    <Badge tone={r.role === "client" ? "primary" : ADVERSE_ROLES.has(r.role) ? "danger" : "neutral"}>
+                      {optionLabel(PARTY_ROLES, r.role, locale)}
+                    </Badge>
                     <Link href={`/matters/${r.matterId}`} target={compact ? "_blank" : undefined} className="truncate text-muted hover:text-foreground">
                       {r.matterName}
                     </Link>
@@ -52,8 +54,12 @@ export function ConflictResults({ hits, compact }: { hits: ConflictHit[]; compac
 export function ConflictPanel({ names }: { names: string[] }) {
   const t = useTranslations("conflicts");
   const [hits, setHits] = useState<ConflictHit[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const key = names.map((n) => n.trim().toLowerCase()).filter((n) => n.length >= 3).join("|");
+  const key = names
+    .map((n) => n.trim().toLowerCase())
+    .filter((n) => n.length >= 3)
+    .join("|");
   const req = useRef(0);
 
   useEffect(() => {
@@ -64,9 +70,14 @@ export function ConflictPanel({ names }: { names: string[] }) {
     }
     const timer = setTimeout(async () => {
       setLoading(true);
-      const res = await runConflictCheck(key.split("|")).catch(() => []);
+      let error = false;
+      const res = await runConflictCheck(key.split("|")).catch(() => {
+        error = true;
+        return [];
+      });
       if (id === req.current) {
-        setHits(res);
+        setFailed(error);
+        setHits(error ? null : res);
         setLoading(false);
       }
     }, 400);
@@ -76,11 +87,21 @@ export function ConflictPanel({ names }: { names: string[] }) {
   return (
     <div className="rounded-card border border-border bg-surface shadow-card">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        {loading ? <Loader2 className="size-4 animate-spin text-muted" /> : hits && hits.length ? <ShieldAlert className="size-4 text-warning" /> : <ShieldCheck className="size-4 text-muted" />}
+        {loading ? (
+          <Loader2 className="size-4 animate-spin text-muted" />
+        ) : hits && hits.length ? (
+          <ShieldAlert className="size-4 text-warning" />
+        ) : (
+          <ShieldCheck className="size-4 text-muted" />
+        )}
         <h3 className="text-sm font-semibold">{t("live")}</h3>
       </div>
       <div className="p-3">
-        {!key ? (
+        {failed && key ? (
+          <p role="alert" className="text-sm text-danger">
+            {t("unavailable")}
+          </p>
+        ) : !key ? (
           <p className="px-1 py-2 text-xs text-muted">{t("liveHint")}</p>
         ) : hits && hits.length === 0 && !loading ? (
           <p className="flex items-center gap-2 px-1 py-2 text-sm text-success">

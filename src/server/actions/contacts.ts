@@ -30,7 +30,7 @@ export async function updateContact(id: string, raw: ContactInput): Promise<Acti
     const input = contactInput.parse(raw);
     if (!input.firstName && !input.lastName && !input.orgName) return { ok: false, error: "name_required" };
     await db.update(contacts).set(contactValues(input)).where(eq(contacts.id, id));
-    await logActivity(db, { contactId: id, type: "system", body: "Contact details updated", authorId: me.id });
+    await logActivity(db, { contactId: id, type: "system", body: "Contact details updated", messageKey: "contactUpdated", authorId: me.id });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -41,7 +41,10 @@ export async function updateContact(id: string, raw: ContactInput): Promise<Acti
 export async function archiveContact(id: string, archived: boolean): Promise<ActionResult> {
   try {
     await requireStaff();
-    await db.update(contacts).set({ archivedAt: archived ? sql`now()` : null }).where(eq(contacts.id, id));
+    await db
+      .update(contacts)
+      .set({ archivedAt: archived ? sql`now()` : null })
+      .where(eq(contacts.id, id));
     revalidateAll();
     return { ok: true };
   } catch (e) {

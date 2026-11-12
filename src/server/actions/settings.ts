@@ -28,7 +28,10 @@ export async function setLocale(locale: "en" | "es"): Promise<ActionResult> {
 export async function updateMyName(name: string): Promise<ActionResult> {
   try {
     const me = await requireStaff();
-    await db.update(staff).set({ name: z.string().trim().min(1).max(120).parse(name) }).where(eq(staff.id, me.id));
+    await db
+      .update(staff)
+      .set({ name: z.string().trim().min(1).max(120).parse(name) })
+      .where(eq(staff.id, me.id));
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -76,7 +79,9 @@ export async function updateStaffMember(id: string, patch: { role?: "admin" | "s
 export async function updateFirmSettings(raw: { defaultSupervisingAttorney?: string; firmName?: string }): Promise<ActionResult> {
   try {
     await requireAdmin();
-    const s = z.object({ defaultSupervisingAttorney: z.string().trim().max(120).default(""), firmName: z.string().trim().min(1).max(120).default("CPH") }).parse(raw);
+    const s = z
+      .object({ defaultSupervisingAttorney: z.string().trim().max(120).default(""), firmName: z.string().trim().min(1).max(120).default("CPH") })
+      .parse(raw);
     await db.update(appSettings).set(s).where(eq(appSettings.id, 1));
     revalidateAll();
     return { ok: true };
@@ -100,7 +105,10 @@ export async function setCasesFolder(folderId: string): Promise<ActionResult> {
   try {
     await requireAdmin();
     const name = await getFolderName(folderId);
-    await db.update(appSettings).set({ casesFolderId: folderId, casesFolderName: name }).where(eq(appSettings.id, 1));
+    await db
+      .update(appSettings)
+      .set({ casesFolderId: folderId, casesFolderName: name, folderSetupEnabled: false, folderMappingVerifiedAt: null })
+      .where(eq(appSettings.id, 1));
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -120,7 +128,10 @@ export async function getCalendars(): Promise<ActionResult<{ id: string; name: s
 export async function setCalendar(calendarId: string, calendarName: string): Promise<ActionResult> {
   try {
     await requireAdmin();
-    await db.update(appSettings).set({ calendarId, calendarName: calendarName.slice(0, 200) }).where(eq(appSettings.id, 1));
+    await db
+      .update(appSettings)
+      .set({ calendarId, calendarName: calendarName.slice(0, 200) })
+      .where(eq(appSettings.id, 1));
     await queueUnsyncedEvents();
     after(() => syncPendingEvents(200));
     revalidateAll();
@@ -133,10 +144,7 @@ export async function setCalendar(calendarId: string, calendarName: string): Pro
 export async function disconnectGoogle(): Promise<ActionResult> {
   try {
     await requireAdmin();
-    await db
-      .update(appSettings)
-      .set({ googleRefreshTokenEnc: null, googleEmail: null, googleConnectedAt: null })
-      .where(eq(appSettings.id, 1));
+    await db.update(appSettings).set({ googleRefreshTokenEnc: null, googleEmail: null, googleConnectedAt: null }).where(eq(appSettings.id, 1));
     revalidateAll();
     return { ok: true };
   } catch (e) {

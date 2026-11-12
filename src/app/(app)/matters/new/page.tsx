@@ -4,6 +4,8 @@ import { IntakeWizard } from "@/components/intake/intake-wizard";
 import { requireStaff } from "@/lib/auth";
 import { getSettings } from "@/server/queries/settings";
 import { isUuid } from "@/lib/utils";
+import { getIntakeDraft } from "@/server/actions/drafts";
+import { notFound } from "next/navigation";
 import { getContact } from "@/server/queries/contacts";
 
 export const metadata = { title: "New intake" };
@@ -14,14 +16,26 @@ export default async function NewIntakePage(props: PageProps<"/matters/new">) {
   const t = await getTranslations("intake");
   const settings = await getSettings();
   const contactId = typeof sp.contact === "string" && isUuid(sp.contact) ? sp.contact : null;
+  const draft = typeof sp.draft === "string" && isUuid(sp.draft) ? await getIntakeDraft(sp.draft) : undefined;
+  if (sp.draft && !draft) notFound();
   const existing = contactId ? await getContact(contactId) : null;
   return (
     <>
       <PageHeader title={t("title")} description={t("description")} />
       <IntakeWizard
-        driveReady={!!(settings.googleRefreshTokenEnc && settings.casesFolderId)}
+        key={draft?.id ?? "new"}
+        initialDraft={draft}
+        driveReady={settings.folderSetupEnabled && !!settings.folderMappingVerifiedAt}
         defaultSupervising={settings.defaultSupervisingAttorney}
-        initialClient={existing ? { id: existing.contact.id, title: existing.contact.displayName, subtitle: [existing.contact.phone, existing.contact.email].filter(Boolean).join(" · ") } : null}
+        initialClient={
+          existing
+            ? {
+                id: existing.contact.id,
+                title: existing.contact.displayName,
+                subtitle: [existing.contact.phone, existing.contact.email].filter(Boolean).join(" · "),
+              }
+            : null
+        }
       />
     </>
   );

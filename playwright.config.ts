@@ -6,6 +6,9 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const PORT = 3100;
 const DB = process.env.E2E_DATABASE_URL ?? "postgres://postgres@127.0.0.1:5433/cph_test";
+const testDatabase = new URL(DB);
+if (!["localhost", "127.0.0.1"].includes(testDatabase.hostname) || testDatabase.pathname !== "/cph_test")
+  throw new Error("Browser tests require an isolated local cph_test database");
 const env = {
   DATABASE_URL: DB,
   DEV_AUTH_BYPASS: "true",
@@ -33,7 +36,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1360, height: 900 } } }],
   webServer: {
     // Fresh schema + demo data, then the app.
-    command: `npx tsx scripts/migrate.ts && npx tsx scripts/seed.ts --reset && ${process.env.E2E_USE_BUILD ? `npx next start -p ${PORT}` : `npx next dev -p ${PORT}`}`,
+    command: `npx tsx scripts/migrate.ts && npx tsx scripts/seed.ts --reset && npx tsx scripts/prepare-e2e.ts && ${process.env.E2E_USE_BUILD ? `npx next start -p ${PORT}` : `npx next dev -p ${PORT}`}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
