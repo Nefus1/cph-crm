@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -21,7 +21,7 @@ jobs:
           POSTGRES_DB: cph_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/cph_test
       NEXT_TELEMETRY_DISABLED: "1"
@@ -70,3 +70,4 @@ jobs:
         with:
           name: connector-${{ matrix.os }}
           path: dist/CPH-Windows-Connector.zip
+
