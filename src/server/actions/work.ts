@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { activities, events, ledgerEntries, tasks } from "@/db/schema";
+import { activities, events, ledgerEntries, tasks, matters } from "@/db/schema";
 import { requireAdmin, requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { syncEvent } from "@/lib/google/calendar";
@@ -34,7 +34,8 @@ export async function updateTask(id: string, raw: z.input<typeof taskInput>): Pr
   try {
     await requireStaff();
     const t = taskInput.parse(raw);
-    await db.update(tasks).set(t).where(eq(tasks.id, id));
+    const updated = await db.update(tasks).set({ ...t, version: sql`${tasks.version} + 1` }).where(and(eq(tasks.id, id), eq(tasks.category, "task"))).returning();
+    if (!updated.length) throw new Error("invalid_input");
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -47,9 +48,11 @@ export async function toggleTask(id: string, done: boolean): Promise<ActionResul
     const me = await requireStaff();
     const [row] = await db
       .update(tasks)
-      .set(done ? { completedAt: sql`now()`, completedBy: me.id } : { completedAt: null, completedBy: null })
-      .where(eq(tasks.id, id))
+      .set(done ? { completedAt: sql`now()`, completedBy: me.id, version: sql`${tasks.version} + 1` } : { completedAt: null, completedBy: null, version: sql`${tasks.version} + 1` })
+      .where(and(eq(tasks.id, id), eq(tasks.category, "task")))
       .returning();
+    if (!row) throw new Error("invalid_input");
+    if (done) await db.update(matters).set({ nextActionId: null, workflowVersion: sql`${matters.workflowVersion} + 1` }).where(eq(matters.nextActionId, id));
     if (done && row?.matterId)
       await logActivity(db, {
         matterId: row.matterId,
@@ -69,7 +72,11 @@ export async function toggleTask(id: string, done: boolean): Promise<ActionResul
 export async function deleteTask(id: string): Promise<ActionResult> {
   try {
     await requireStaff();
-    await db.delete(tasks).where(eq(tasks.id, id));
+    await db.transaction(async tx => {
+      const deleted = await tx.delete(tasks).where(and(eq(tasks.id, id), eq(tasks.category, "task"))).returning();
+      if (!deleted.length) throw new Error("invalid_input");
+      await tx.update(matters).set({ nextActionId: null, workflowVersion: sql`${matters.workflowVersion} + 1` }).where(eq(matters.nextActionId, id));
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {

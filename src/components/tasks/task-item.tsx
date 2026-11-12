@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 
 export interface TaskItemData {
   id: string;
+  category?: string;
   title: string;
   notes: string;
   dueDate: string | null;
@@ -28,11 +29,13 @@ export interface TaskItemData {
 
 export function TaskItem({ task, showMatter = true, showAssignee = false }: { task: TaskItemData; showMatter?: boolean; showAssignee?: boolean }) {
   const t = useTranslations("tasks");
+  const tw = useTranslations("office");
   const tc = useTranslations("common");
   const quick = useQuickActions();
   const [, start] = useTransition();
   const [done, setDone] = useOptimistic(!!task.completedAt);
 
+  if (task.category === "follow_up") return <div className="px-4 py-3"><Link className="text-primary underline" href="/follow-ups">{task.title} — {tw("followups")}</Link><div className="text-xs text-muted">{task.dueDate} · {task.assigneeName}</div></div>;
   return (
     <div className="group flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2/60">
       <Checkbox

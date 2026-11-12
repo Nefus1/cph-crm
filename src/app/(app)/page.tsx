@@ -1,3 +1,4 @@
+import { TodayWork } from "@/components/workflows/today-work";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ArrowRight, Briefcase, CalendarDays, CheckSquare, CircleDollarSign, Clock, Inbox, Plus } from "lucide-react";
@@ -46,6 +47,7 @@ export default async function TodayPage() {
         }
       />
 
+      <TodayWork />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
           <Link key={s.label} href={s.href} className="group rounded-card border border-border bg-surface p-4 shadow-card transition-colors hover:border-border-strong">

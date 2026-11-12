@@ -17,6 +17,7 @@ export default async function MattersPage(props: PageProps<"/matters">) {
   await requireStaff();
   const sp = await props.searchParams;
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const tw = await getTranslations("office");
   const t = await getTranslations("matters");
   const locale = (await getLocale()) as "en" | "es";
 
@@ -27,6 +28,8 @@ export default async function MattersPage(props: PageProps<"/matters">) {
 
   const rows = await listMatters({
     area,
+    blocker: str("blocker"),
+    noNextAction: str("noNextAction") === "1",
     status: view === "board" ? (str("status") ?? "open") : str("status"),
     assignee: str("assignee"),
     q: str("q"),
@@ -47,6 +50,23 @@ export default async function MattersPage(props: PageProps<"/matters">) {
           </Button>
         }
       />
+      <form className="mb-4 flex flex-wrap gap-3">
+        <label>
+          {tw("blocker")}{" "}
+          <select name="blocker" defaultValue={str("blocker") ?? ""}>
+            <option value="">—</option>
+            {["client", "office", "court", "attorney", "other"].map((v) => (
+              <option key={v} value={v}>
+                {tw(v as never)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <input type="checkbox" name="noNextAction" value="1" defaultChecked={str("noNextAction") === "1"} /> {tw("no_next_action")}
+        </label>
+        <button>{tw("filter")}</button>
+      </form>
       <MattersToolbar area={area} view={view} side={side} count={view === "board" ? boardRows.length : rows.length} />
       {view === "board" && cfg ? (
         <MatterBoard rows={boardRows} area={area} side={side ?? null} locale={locale} />
