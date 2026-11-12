@@ -73,6 +73,12 @@ export const matters = pgTable(
     stage: text("stage").notNull(),
     status: text("status").notNull().default("active"), // intake | active | closed
     assigneeId: uuid("assignee_id").references(() => staff.id, { onDelete: "set null" }),
+    nextActionId: uuid("next_action_id"),
+    blocker: text("blocker"),
+    blockerNote: text("blocker_note").notNull().default(""),
+    blockerReviewDate: date("blocker_review_date"),
+    pinnedNote: text("pinned_note").notNull().default(""),
+    workflowVersion: integer("workflow_version").notNull().default(0),
     supervisingAttorney: text("supervising_attorney").notNull().default(""),
     openedOn: date("opened_on").notNull().defaultNow(),
     closedOn: date("closed_on"),
@@ -142,6 +148,11 @@ export const tasks = pgTable(
   {
     id: id(),
     matterId: uuid("matter_id").references(() => matters.id, { onDelete: "cascade" }),
+    category: text("category").notNull().default("task"),
+    contactId: uuid("contact_id").references(() => contacts.id),
+    channel: text("channel"),
+    waiting: boolean("waiting").notNull().default(false),
+    version: integer("version").notNull().default(0),
     title: text("title").notNull(),
     notes: text("notes").notNull().default(""),
     assigneeId: uuid("assignee_id").references(() => staff.id, { onDelete: "set null" }),
@@ -330,3 +341,52 @@ export const folderJobs = pgTable(
   },
   (t) => [index("folder_jobs_queue_idx").on(t.state, t.nextAttemptAt)],
 );
+
+/** Operational paperwork dates are independent of legal calendar deadlines. */
+export const paperworkItems = pgTable("paperwork_items", {
+  id: id(),
+  matterId: uuid("matter_id").notNull().references(() => matters.id),
+  title: text("title").notNull(),
+  formNumber: text("form_number").notNull().default(""),
+  revision: text("revision").notNull().default(""),
+  source: text("source").notNull().default("pdf"),
+  fileUrl: text("file_url").notNull().default(""),
+  preparerId: uuid("preparer_id").references(() => staff.id),
+  reviewerId: uuid("reviewer_id").references(() => staff.id),
+  targetDate: date("target_date"),
+  missingInformation: text("missing_information").notNull().default(""),
+  status: text("status").notNull().default("needed"),
+  version: integer("version").notNull().default(1),
+  updatedBy: uuid("updated_by").references(() => staff.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, t => [index("paperwork_matter_idx").on(t.matterId), index("paperwork_review_idx").on(t.reviewerId, t.status)]);
+
+export const documentRequests = pgTable("document_requests", {
+  id: id(),
+  matterId: uuid("matter_id").notNull().references(() => matters.id),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("requested"),
+  followUpTaskId: uuid("follow_up_task_id").references(() => tasks.id),
+  version: integer("version").notNull().default(1),
+  updatedBy: uuid("updated_by").references(() => staff.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, t => [index("document_requests_matter_idx").on(t.matterId)]);
+
+export const paperworkTemplates = pgTable("paperwork_templates", {
+  id: id(),
+  practiceArea: text("practice_area").notNull(),
+  title: text("title").notNull(),
+  items: jsonb("items").$type<{ key: string; en: string; es: string; formNumber: string }[]>().notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: updatedAt(),
+});
+
+/** Mutation receipts make retries distinguishable from simultaneous staff edits. */
+export const workflowMutations = pgTable("workflow_mutations", {
+  id: uuid("id").primaryKey(),
+  actorId: uuid("actor_id").notNull().references(() => staff.id),
+  fingerprint: text("fingerprint").notNull(),
+  createdAt: createdAt(),
+});

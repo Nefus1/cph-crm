@@ -1,3 +1,6 @@
+import { officeWorkspace } from "@/server/queries/office-workflows";
+import { Workspace } from "@/components/workflows/workspace";
+import { todayISO } from "@/lib/dates";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { requireStaff } from "@/lib/auth";
@@ -20,7 +23,7 @@ export async function generateMetadata(props: PageProps<"/matters/[id]">) {
   return { title: data?.matter.displayName ?? "Matter" };
 }
 
-const TABS = ["overview", "timeline", "tasks", "dates", "billing", "files"] as const;
+const TABS = ["overview", "timeline", "tasks", "dates", "billing", "files", "paperwork"] as const;
 type Tab = (typeof TABS)[number];
 
 export default async function MatterPage(props: PageProps<"/matters/[id]">) {
@@ -34,6 +37,7 @@ export default async function MatterPage(props: PageProps<"/matters/[id]">) {
   const tab: Tab = TABS.includes(sp.tab as Tab) ? (sp.tab as Tab) : "overview";
   const t = await getTranslations("matter");
 
+  const workspace = tab === "paperwork" || tab === "overview" ? await officeWorkspace(id) : null;
   const openTasks = data.tasks.filter((x) => !x.task.completedAt).length;
   const upcoming = data.events.filter((e) => e.status === "scheduled").length;
   const holidays = tab === "dates" && data.matter.practiceArea === "ud" ? [...(await getHolidaySet())] : [];
@@ -50,10 +54,12 @@ export default async function MatterPage(props: PageProps<"/matters/[id]">) {
           { key: "tasks", label: t("tabs.tasks"), count: openTasks },
           { key: "dates", label: t("tabs.dates"), count: upcoming },
           { key: "billing", label: t("tabs.billing") },
+          { key: "paperwork", label: t("tabs.paperwork") },
           { key: "files", label: t("tabs.files") },
         ]}
       />
       <div className="mt-6">
+        {workspace ? <Workspace embedded data={workspace} mode={tab === "paperwork" ? "paperwork" : "progress"} today={todayISO()} /> : null}
         {tab === "overview" ? <OverviewTab data={data} locale={locale} /> : null}
         {tab === "timeline" ? <TimelineTab data={data} locale={locale} /> : null}
         {tab === "tasks" ? <TasksTab data={data} /> : null}

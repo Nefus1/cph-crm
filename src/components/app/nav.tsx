@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/", key: "today", icon: Home, exact: true },
+  { href: "/follow-ups", key: "followups", icon: Users },
+  { href: "/paperwork", key: "paperwork", icon: CheckSquare },
+  { href: "/case-progress", key: "progress", icon: Briefcase },
   { href: "/matters", key: "matters", icon: Briefcase },
   { href: "/case-generator", key: "generator", icon: Briefcase },
   { href: "/intake-drafts", key: "drafts", icon: Users },

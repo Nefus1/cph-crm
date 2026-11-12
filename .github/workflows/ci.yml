@@ -42,6 +42,10 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/cph_test
           RUN_DB_TESTS: "1"
+      - run: npx vitest run tests/office-workflows.integration.test.ts
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/cph_test
+          RUN_DB_TESTS: "1"
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
@@ -70,4 +74,3 @@ jobs:
         with:
           name: connector-${{ matrix.os }}
           path: dist/CPH-Windows-Connector.zip
-

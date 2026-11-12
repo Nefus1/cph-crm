@@ -11,6 +11,7 @@ import type { MatterRow } from "@/server/queries/matters";
 import { cn } from "@/lib/utils";
 
 export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale: Locale }) {
+  const tw = await getTranslations("office");
   const t = await getTranslations("matters");
   return (
     <Card className="overflow-hidden">
@@ -24,6 +25,14 @@ export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale:
                 <div className="truncate text-sm font-medium">{r.displayName}</div>
                 <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
                   <span>{stageLabel(r.practiceArea, r.side, r.stage, locale)}</span>
+                  <span>
+                    {r.nextAction ?? tw("no_next_action")} · {r.nextActionDue} · {r.nextActionOwner}
+                  </span>
+                  {r.blocker ? (
+                    <span>
+                      {tw(r.blocker as never)} · {r.blockerReviewDate}
+                    </span>
+                  ) : null}
                   {r.caseNumber ? <span className="font-mono">{r.caseNumber}</span> : null}
                   {r.nextDate ? <span>{formatDate(r.nextDate, locale, { month: "short", day: "numeric", year: undefined })}</span> : null}
                 </div>
@@ -40,8 +49,11 @@ export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale:
               <th className="px-4 py-2.5 font-medium">{t("col.matter")}</th>
               <th className="px-3 py-2.5 font-medium">{t("col.stage")}</th>
               <th className="px-3 py-2.5 font-medium">{t("col.case")}</th>
+
               <th className="px-3 py-2.5 font-medium">{t("col.nextDate")}</th>
               <th className="px-3 py-2.5 font-medium">{t("col.assignee")}</th>
+              <th className="px-3 py-2.5">{tw("nextActionId")}</th>
+              <th className="px-3 py-2.5">{tw("blocker")}</th>
               <th className="px-4 py-2.5 text-right font-medium">{t("col.balance")}</th>
             </tr>
           </thead>
@@ -64,14 +76,20 @@ export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale:
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1.5">
-                      {r.status === "intake" ? <Badge tone="warning">{t("status.intake")}</Badge> : r.status === "closed" ? <Badge>{t("status.closed")}</Badge> : null}
+                      {r.status === "intake" ? (
+                        <Badge tone="warning">{t("status.intake")}</Badge>
+                      ) : r.status === "closed" ? (
+                        <Badge>{t("status.closed")}</Badge>
+                      ) : null}
                       <span className="truncate text-muted">{stageLabel(r.practiceArea, r.side, r.stage, locale)}</span>
                     </div>
                   </td>
                   <td className="px-3 py-3 font-mono text-xs text-muted">{r.caseNumber || "—"}</td>
                   <td className="px-3 py-3">
                     {r.nextDate ? (
-                      <span className={cn("text-xs", nd !== null && nd <= 2 ? "font-medium text-warning" : "text-muted")}>{formatDate(r.nextDate, locale, { month: "short", day: "numeric", year: undefined })}</span>
+                      <span className={cn("text-xs", nd !== null && nd <= 2 ? "font-medium text-warning" : "text-muted")}>
+                        {formatDate(r.nextDate, locale, { month: "short", day: "numeric", year: undefined })}
+                      </span>
                     ) : (
                       <span className="text-xs text-subtle">—</span>
                     )}
@@ -86,7 +104,19 @@ export async function MatterTable({ rows, locale }: { rows: MatterRow[]; locale:
                       <span className="text-xs text-subtle">—</span>
                     )}
                   </td>
-                  <td className={cn("px-4 py-3 text-right tabular-nums", r.balance > 0 ? "font-medium" : "text-subtle")}>{r.balance !== 0 ? formatCents(r.balance, locale) : "—"}</td>
+                  <td className="px-3 py-3">
+                    {r.nextAction ?? tw("no_next_action")}
+                    <div className="text-xs text-muted">
+                      {r.nextActionDue} · {r.nextActionOwner}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    {r.blocker ? tw(r.blocker as never) : "—"}
+                    <div>{r.blockerReviewDate}</div>
+                  </td>
+                  <td className={cn("px-4 py-3 text-right tabular-nums", r.balance > 0 ? "font-medium" : "text-subtle")}>
+                    {r.balance !== 0 ? formatCents(r.balance, locale) : "—"}
+                  </td>
                 </tr>
               );
             })}

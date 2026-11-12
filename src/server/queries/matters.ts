@@ -11,6 +11,8 @@ export interface MatterFilters {
   status?: string; // open (intake+active) | intake | active | closed | all
   assignee?: string;
   stage?: string;
+  blocker?: string;
+  noNextAction?: boolean;
   q?: string;
   balance?: boolean;
 }
@@ -25,6 +27,8 @@ export async function listMatters(f: MatterFilters = {}) {
   else if (status !== "all") where.push(eq(m.status, status));
   if (f.assignee === "unassigned") where.push(isNull(m.assigneeId));
   else if (f.assignee) where.push(eq(m.assigneeId, f.assignee));
+  if (f.blocker) where.push(eq(m.blocker, f.blocker));
+  if (f.noNextAction) where.push(sql`not exists (select 1 from tasks nt where nt.id = ${m.nextActionId} and nt.completed_at is null)`);
   if (f.stage) where.push(eq(m.stage, f.stage));
   if (f.q) {
     const q = f.q.trim();
@@ -48,6 +52,11 @@ export async function listMatters(f: MatterFilters = {}) {
       stage: m.stage,
       status: m.status,
       caseNumber: m.caseNumber,
+      blocker: m.blocker,
+      blockerReviewDate: m.blockerReviewDate,
+      nextAction: sql<string | null>`(select t.title from tasks t where t.id = ${m.nextActionId} and t.completed_at is null)`,
+      nextActionDue: sql<string | null>`(select t.due_date::text from tasks t where t.id = ${m.nextActionId} and t.completed_at is null)`,
+      nextActionOwner: sql<string | null>`(select s.name from tasks t left join staff s on s.id = t.assignee_id where t.id = ${m.nextActionId} and t.completed_at is null)`,
       courthouse: m.courthouse,
       openedOn: m.openedOn,
       updatedAt: m.updatedAt,
