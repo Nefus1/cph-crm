@@ -1,4 +1,10 @@
 import Link from "next/link";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { matterFolders, folderJobs } from "@/db/schema";
+import { requireStaff } from "@/lib/auth";
+import { getSettings } from "@/server/queries/settings";
+import { FolderPanel } from "@/components/folders/folder-panel";
 import { getTranslations } from "next-intl/server";
 import { ExternalLink, FileText, Folder, FolderOpen } from "lucide-react";
 import { Card, CardHeader, EmptyState } from "@/components/ui/card";
@@ -12,20 +18,44 @@ import type { MatterDetail } from "@/server/queries/matters";
 export async function FilesTab({ data, locale }: { data: MatterDetail; locale: Locale }) {
   const t = await getTranslations("files");
   const { matter } = data;
+  const me = await requireStaff();
+  const settings = await getSettings();
+  const rows = await db
+    .select({ binding: matterFolders, jobError: folderJobs.error })
+    .from(matterFolders)
+    .leftJoin(folderJobs, eq(folderJobs.bindingId, matterFolders.id))
+    .where(eq(matterFolders.matterId, matter.id));
+  const bindings = rows.map((r) => ({ ...r.binding, jobError: r.jobError }));
+  const panel = <FolderPanel matterId={matter.id} bindings={bindings} enabled={settings.folderSetupEnabled} admin={me.role === "admin"} />;
   const connected = !!(await getAuthedClient().catch(() => null));
 
   if (!connected) {
     return (
-      <Card>
-        <EmptyState icon={<FolderOpen />} title={t("notConnected")} description={t("notConnectedHint")} action={<Button asChild><Link href="/settings/google">{t("connect")}</Link></Button>} />
-      </Card>
+      <>
+        {panel}
+        <Card>
+          <EmptyState
+            icon={<FolderOpen />}
+            title={t("notConnected")}
+            description={t("notConnectedHint")}
+            action={
+              <Button asChild>
+                <Link href="/settings/google">{t("connect")}</Link>
+              </Button>
+            }
+          />
+        </Card>
+      </>
     );
   }
   if (!matter.driveFolderId) {
     return (
-      <Card>
-        <EmptyState icon={<FolderOpen />} title={t("noFolder")} description={t("noFolderHint")} />
-      </Card>
+      <>
+        {panel}
+        <Card>
+          <EmptyState icon={<FolderOpen />} title={t("noFolder")} description={t("noFolderHint")} />
+        </Card>
+      </>
     );
   }
 
@@ -33,41 +63,44 @@ export async function FilesTab({ data, locale }: { data: MatterDetail; locale: L
   let error: string | null = null;
   try {
     files = await listFolderFiles(matter.driveFolderId);
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+  } catch {
+    error = t("loadError");
   }
 
   return (
-    <Card>
-      <CardHeader
-        icon={<FolderOpen />}
-        title={matter.displayName}
-        description={t("hint")}
-        action={
-          <Button asChild variant="secondary" size="sm">
-            <a href={matter.driveFolderUrl ?? "#"} target="_blank" rel="noreferrer">
-              <ExternalLink /> {t("openInDrive")}
-            </a>
-          </Button>
-        }
-      />
-      {error ? (
-        <p className="px-4 py-6 text-sm text-danger">{error}</p>
-      ) : files.length ? (
-        <ul className="divide-y divide-border">
-          {files.map((f) => (
-            <li key={f.id}>
-              <a href={f.webViewLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2/60">
-                {f.isFolder ? <Folder className="size-4 text-area-ud" /> : <FileText className="size-4 text-muted" />}
-                <span className="min-w-0 flex-1 truncate text-sm">{f.name}</span>
-                {f.modifiedTime ? <span className="text-xs text-muted">{formatDateTime(f.modifiedTime, locale)}</span> : null}
+    <>
+      {panel}
+      <Card>
+        <CardHeader
+          icon={<FolderOpen />}
+          title={matter.displayName}
+          description={t("hint")}
+          action={
+            <Button asChild variant="secondary" size="sm">
+              <a href={matter.driveFolderUrl ?? "#"} target="_blank" rel="noreferrer">
+                <ExternalLink /> {t("openInDrive")}
               </a>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptyState title={t("empty")} />
-      )}
-    </Card>
+            </Button>
+          }
+        />
+        {error ? (
+          <p className="px-4 py-6 text-sm text-danger">{error}</p>
+        ) : files.length ? (
+          <ul className="divide-y divide-border">
+            {files.map((f) => (
+              <li key={f.id}>
+                <a href={f.webViewLink} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-2/60">
+                  {f.isFolder ? <Folder className="size-4 text-area-ud" /> : <FileText className="size-4 text-muted" />}
+                  <span className="min-w-0 flex-1 truncate text-sm">{f.name}</span>
+                  {f.modifiedTime ? <span className="text-xs text-muted">{formatDateTime(f.modifiedTime, locale)}</span> : null}
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title={t("empty")} />
+        )}
+      </Card>
+    </>
   );
 }

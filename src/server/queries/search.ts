@@ -62,14 +62,14 @@ export interface ConflictHit {
  * "Merdado" also finds "Mercado" and "Jose" finds "José". Returns every role the
  * person has played on any matter, so adverse relationships stand out.
  */
-export async function conflictSearch(names: string[]): Promise<ConflictHit[]> {
+export async function conflictSearch(names: string[], connection: Pick<typeof db, "execute"> = db): Promise<ConflictHit[]> {
   const terms = [...new Set(names.map((n) => n.replace(/,/g, " ").replace(/\s+/g, " ").trim()).filter((n) => n.length >= 3))];
   if (terms.length === 0) return [];
   const hits = new Map<string, ConflictHit>();
 
   for (const term of terms) {
     const tokens = term.split(" ").filter((t) => t.length >= 2);
-    const rows = await db.execute<{
+    const rows = await connection.execute<{
       id: string;
       display_name: string;
       phone: string;
@@ -98,7 +98,19 @@ export async function conflictSearch(names: string[]): Promise<ConflictHit[]> {
       const prev = hits.get(r.id);
       const score = Number(r.score);
       const normalizedName = r.display_name.toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ").trim();
-      const exact = score >= 0.9 || tokens.every((t) => normalizedName.normalize("NFD").replace(/\p{Diacritic}/gu, "").includes(t.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "")));
+      const exact =
+        score >= 0.9 ||
+        tokens.every((t) =>
+          normalizedName
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .includes(
+              t
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/\p{Diacritic}/gu, ""),
+            ),
+        );
       if (!prev || prev.score < score) {
         hits.set(r.id, { contactId: r.id, displayName: r.display_name, phone: r.phone, email: r.email, score, exact, roles: r.roles ?? [] });
       }

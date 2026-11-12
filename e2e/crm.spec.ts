@@ -37,6 +37,8 @@ test.describe.serial("CPH CRM", () => {
     await page.getByLabel("Flat fee", { exact: true }).fill("1500");
     await page.getByLabel("Payment received today").fill("500");
     await expect(page.getByText("$1,000.00")).toBeVisible();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("checkbox", { name: /I reviewed the client/ }).check();
     await page.getByRole("button", { name: "Create matter" }).click();
 
     await page.waitForURL(/\/matters\/[0-9a-f-]{36}$/);
@@ -79,7 +81,7 @@ test.describe.serial("CPH CRM", () => {
 
     await page.getByRole("link", { name: /^Timeline/ }).click();
     await expect(page.getByText(/Stage: Intake → Notice Served/)).toBeVisible();
-    await expect(page.getByText(/Payment received: \$250\.00/)).toBeVisible();
+    await expect(page.getByText(/Payment: \$250\.00/)).toBeVisible();
   });
 
   test("Global search and conflict check", async ({ page }) => {
@@ -121,4 +123,67 @@ test.describe.serial("CPH CRM", () => {
     expect(overflow).toBeLessThanOrEqual(1);
     await page.screenshot({ path: "test-results/screens/mobile-matters.png", fullPage: true });
   });
+});
+
+test.describe.serial("Saved intake and generator", () => {
+  test("saves an accented-name draft, detects a stale editor, and resumes it", async ({ page, context }) => {
+    await page.goto("/matters/new");
+    await page.getByLabel("First name").fill("José");
+    await page.getByLabel("Last name(s)").fill("Muñoz García Draft");
+    await page.getByRole("button", { name: "Save intake draft" }).click();
+    await page.waitForURL(/\/matters\/new\?draft=/);
+    const draftUrl = page.url();
+    const other = await context.newPage();
+    await other.goto(draftUrl);
+    await page.getByLabel("Phone", { exact: true }).fill("3105550181");
+    await page.getByRole("button", { name: "Save intake draft" }).click();
+    await toast(page, "Intake draft saved");
+    await other.getByLabel("Phone", { exact: true }).fill("3105550182");
+    await other.getByRole("button", { name: "Save intake draft" }).click();
+    await toast(other, /This intake changed/);
+    await expect(other.getByLabel("Phone", { exact: true })).toHaveValue("3105550182");
+    await other.close();
+    await page.goto("/intake-drafts");
+    await page.getByRole("link", { name: "José Muñoz García Draft" }).click();
+    await expect(page.getByLabel("Phone", { exact: true })).toHaveValue("3105550181");
+    await page.getByRole("button", { name: "Cambiar a español" }).click();
+    await expect(page.getByRole("button", { name: "Guardar borrador de admisión" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Guardar borrador de admisión" })).toBeVisible();
+    await page.getByRole("button", { name: "Switch to English" }).click();
+  });
+  test("shows a bilingual generator and disabled setup without losing intake access", async ({ page }) => {
+    await page.goto("/case-generator");
+    await expect(page.getByRole("heading", { name: "Case Generator" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create case folders", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "Cambiar a español" }).click();
+    await expect(page.getByRole("heading", { name: "Generador de casos" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Nueva admisión", exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: "Switch to English" }).click();
+  });
+});
+
+test("completes intake and reads system history in Spanish", async ({ page }) => {
+  await page.goto("/matters/new");
+  await page.getByRole("button", { name: "Cambiar a español" }).click();
+  await page.getByLabel("Nombre", { exact: true }).fill("Lucía");
+  await page.getByLabel("Apellido(s)").fill("García López");
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await page.getByRole("button", { name: /GEN General/ }).click();
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await page.getByLabel("Tarifa fija", { exact: true }).fill("200");
+  await page.getByLabel("Pago recibido hoy").fill("50");
+  await expect(page.getByRole("button", { name: "Efectivo", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Crear caso", exact: true })).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Revisé los nombres del cliente/ }).check();
+  await page.screenshot({ path: "test-results/screens/intake-review-es.png", fullPage: true });
+  await page.getByRole("button", { name: "Crear caso", exact: true }).click();
+  await page.waitForURL(/\/matters\/[0-9a-f-]{36}$/);
+  await page.goto(`${page.url()}?tab=timeline`);
+  await expect(page.getByText(/Caso abierto \(CPH-/)).toBeVisible();
+  await expect(page.getByText(/Pago recibido:.*50\.00.*Efectivo/)).toBeVisible();
+  await page.getByRole("button", { name: "Switch to English" }).click();
 });

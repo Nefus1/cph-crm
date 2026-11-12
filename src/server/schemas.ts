@@ -3,7 +3,14 @@ import { PRACTICE_AREAS } from "@/config/practice-areas";
 
 const trimmed = (max = 500) => z.string().trim().max(max);
 const optionalDate = z
-  .union([z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal(""), z.null()])
+  .union([
+    z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}$/),
+    z.literal(""),
+    z.null(),
+  ])
   .optional()
   .transform((v) => (v ? v : null));
 const requiredDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
@@ -62,13 +69,16 @@ export const matterCoreInput = z.object({
 });
 
 export const intakeInput = z.object({
+  submissionId: z.string().uuid(),
+  draftVersion: z.number().int().min(0).default(0),
+  conflictReviewed: z.literal(true),
   client: z.object({ contactId: z.string().uuid().optional(), contact: contactInput.optional() }),
   matter: matterCoreInput,
   otherParties: z.array(partyInput).max(20).default([]),
   initialPaymentCents: z.number().int().min(0).max(100_000_000).default(0),
   paymentMethod: trimmed(40).default(""),
   note: trimmed(10000).default(""),
-  createDriveFolder: z.boolean().default(true),
+  createDriveFolder: z.boolean().default(false),
 });
 export type IntakeInput = z.input<typeof intakeInput>;
 
@@ -92,7 +102,12 @@ export const eventInput = z.object({
     .or(z.literal(""))
     .nullish()
     .transform((v) => (v ? v : null)),
-  durationMinutes: z.number().int().min(5).max(24 * 60).default(60),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(5)
+    .max(24 * 60)
+    .default(60),
   location: trimmed(300).default(""),
   notes: trimmed(5000).default(""),
   ladder: z.enum(["service", "filing", "none"]).default("none"),

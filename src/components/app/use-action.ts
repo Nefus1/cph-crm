@@ -10,7 +10,7 @@ export function useAction() {
   const t = useTranslations("errors");
 
   function errorText(code: string) {
-    return t.has(code as never) ? t(code as never) : code;
+    return t.has(code as never) ? t(code as never) : t("unexpected");
   }
 
   function run<T>(fn: () => Promise<ActionResult<T>>, opts: { success?: string; onSuccess?: (data?: T) => void; onError?: (e: string) => void } = {}) {

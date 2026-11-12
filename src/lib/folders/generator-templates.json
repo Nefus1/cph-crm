@@ -1,0 +1,37 @@
+{
+  "General": {
+    "folders": ["Scans", "Exhibits"],
+    "files": {
+      "Notes.txt": "General Case Notes\n==================\n\nClient:       \nMatter No.:   \nDate Opened:  \n\nNotes:\n\n",
+      "Intake Checklist.txt": "General Intake Checklist\n========================\n\n[ ] Client ID verified\n[ ] Conflict check completed\n[ ] Retainer agreement signed\n[ ] Initial consultation notes recorded\n[ ] Fee arrangement confirmed\n"
+    }
+  },
+  "Unlawful Detainer": {
+    "folders": ["UD/Complaint/Filed", "UD/Answer/Filed", "UD/Scans", "UD/Exhibits"],
+    "files": {
+      "Notes.txt": "Unlawful Detainer — Case Notes\n==============================\n\nClient:            \nMatter No.:        \nProperty Address:  \nDate Opened:       \n\nNotes:\n\n",
+      "Intake Checklist.txt": "Unlawful Detainer Intake Checklist\n==================================\n\n[ ] Property address confirmed\n[ ] Lease / rental agreement obtained\n[ ] 3-day / 30-day notice served — date: \n[ ] Proof of service obtained\n[ ] Rent ledger / payment history obtained\n[ ] Landlord / property owner verified\n[ ] Filing fee confirmed\n[ ] Conflict check completed\n[ ] Retainer agreement signed\n"
+    }
+  },
+  "Divorce": {
+    "folders": ["Divorce/Petition/Filed", "Divorce/Answer", "Divorce/Scans", "Divorce/Exhibits", "Divorce/PDD"],
+    "files": {
+      "Notes.txt": "Divorce — Case Notes\n====================\n\nClient:           \nMatter No.:       \nOpposing Party:   \nDate Opened:      \n\nNotes:\n\n",
+      "Intake Checklist.txt": "Divorce Intake Checklist\n========================\n\n[ ] Marriage date: \n[ ] Separation date: \n[ ] Minor children (names / ages): \n[ ] Custody arrangement sought: \n[ ] Real property (address): \n[ ] Joint bank / investment accounts listed\n[ ] Retirement accounts listed\n[ ] Debts / liabilities listed\n[ ] Prenuptial agreement (if any) obtained\n[ ] Domestic violence history: Y / N\n[ ] Conflict check completed\n[ ] Retainer agreement signed\n"
+    }
+  },
+  "Estate Planning": {
+    "folders": [
+      "Estate Planning/Will/Drafts",
+      "Estate Planning/Will/Final",
+      "Estate Planning/Trust/Drafts",
+      "Estate Planning/Trust/Final",
+      "Estate Planning/Power of Attorney",
+      "Estate Planning/Healthcare Directive"
+    ],
+    "files": {
+      "Notes.txt": "Estate Planning — Case Notes\n============================\n\nClient:       \nMatter No.:   \nDate Opened:  \n\nNotes:\n\n",
+      "Intake Checklist.txt": "Estate Planning Intake Checklist\n================================\n\n[ ] Full legal name: \n[ ] Date of birth: \n[ ] Spouse / partner: \n[ ] Children (names / ages): \n[ ] Beneficiaries identified\n[ ] Executor / trustee named: \n[ ] Real property listed\n[ ] Financial accounts listed\n[ ] Business interests: \n[ ] Life insurance policies: \n[ ] Existing estate documents obtained\n[ ] Healthcare proxy named: \n[ ] Power of attorney agent: \n[ ] Retainer agreement signed\n"
+    }
+  }
+}

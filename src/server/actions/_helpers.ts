@@ -9,13 +9,23 @@ type DbLike = typeof db | Tx;
 
 export async function logActivity(
   tx: DbLike,
-  a: { matterId?: string | null; contactId?: string | null; type: string; body: string; authorId?: string | null },
+  a: {
+    matterId?: string | null;
+    contactId?: string | null;
+    type: string;
+    body: string;
+    authorId?: string | null;
+    messageKey?: string;
+    messageValues?: Record<string, string | number>;
+  },
 ) {
   await tx.insert(activities).values({
     matterId: a.matterId ?? null,
     contactId: a.contactId ?? null,
     type: a.type,
     body: a.body,
+    messageKey: a.messageKey,
+    messageValues: a.messageValues,
     authorId: a.authorId ?? null,
   });
 }

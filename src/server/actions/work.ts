@@ -50,7 +50,15 @@ export async function toggleTask(id: string, done: boolean): Promise<ActionResul
       .set(done ? { completedAt: sql`now()`, completedBy: me.id } : { completedAt: null, completedBy: null })
       .where(eq(tasks.id, id))
       .returning();
-    if (done && row?.matterId) await logActivity(db, { matterId: row.matterId, type: "system", body: `Task completed: ${row.title}`, authorId: me.id });
+    if (done && row?.matterId)
+      await logActivity(db, {
+        matterId: row.matterId,
+        type: "system",
+        body: `Task completed: ${row.title}`,
+        messageKey: "taskCompleted",
+        messageValues: { title: row.title },
+        authorId: me.id,
+      });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -86,7 +94,14 @@ export async function createEvent(raw: z.input<typeof eventInput>): Promise<Acti
       .values({ ...e, allDay: !e.time, computedFrom: e.computedFrom ?? null, syncStatus, createdBy: me.id })
       .returning({ id: events.id });
     if (e.matterId) {
-      await logActivity(db, { matterId: e.matterId, type: "system", body: `${e.kind === "hearing" ? "Hearing" : e.kind === "deadline" ? "Deadline" : "Appointment"} added: ${e.title} — ${formatDate(e.date)}`, authorId: me.id });
+      await logActivity(db, {
+        matterId: e.matterId,
+        type: "system",
+        body: `${e.kind === "hearing" ? "Hearing" : e.kind === "deadline" ? "Deadline" : "Appointment"} added: ${e.title} — ${formatDate(e.date)}`,
+        messageKey: "eventAdded",
+        messageValues: { kind: e.kind, title: e.title, date: e.date },
+        authorId: me.id,
+      });
     }
     if (syncStatus === "pending") after(() => syncEvent(row.id));
     revalidateAll();
@@ -109,7 +124,14 @@ export async function createEvents(list: z.input<typeof eventInput>[]): Promise<
       .returning({ id: events.id, matterId: events.matterId, title: events.title, date: events.date });
     const matterId = rows[0]?.matterId;
     if (matterId) {
-      await logActivity(db, { matterId, type: "system", body: `Dates added from calculator: ${rows.map((r) => `${r.title} (${formatDate(r.date)})`).join("; ")}`, authorId: me.id });
+      await logActivity(db, {
+        matterId,
+        type: "system",
+        body: `Dates added from calculator: ${rows.map((r) => `${r.title} (${formatDate(r.date)})`).join("; ")}`,
+        messageKey: "calculatorDates",
+        messageValues: { dates: rows.map((r) => `${r.title} (${r.date})`).join("; ") },
+        authorId: me.id,
+      });
     }
     if (syncStatus === "pending") {
       after(async () => {
@@ -138,6 +160,8 @@ export async function updateEvent(id: string, raw: z.input<typeof eventInput>): 
       await logActivity(db, {
         matterId: current.matterId,
         type: "system",
+        messageKey: current.status !== e.status ? "eventStatus" : "eventMoved",
+        messageValues: { title: e.title, status: e.status, from: current.date, to: e.date },
         body: current.status !== e.status ? `${e.title}: marked ${e.status}` : `${e.title} moved from ${formatDate(current.date)} to ${formatDate(e.date)}`,
         authorId: me.id,
       });
@@ -168,8 +192,20 @@ export async function setEventStatus(id: string, status: "scheduled" | "done" | 
 export async function deleteEvent(id: string): Promise<ActionResult> {
   try {
     const me = await requireStaff();
-    const [row] = await db.update(events).set({ deletedAt: sql`now()` }).where(and(eq(events.id, id), isNull(events.deletedAt))).returning();
-    if (row?.matterId) await logActivity(db, { matterId: row.matterId, type: "system", body: `Removed: ${row.title} (${formatDate(row.date)})`, authorId: me.id });
+    const [row] = await db
+      .update(events)
+      .set({ deletedAt: sql`now()` })
+      .where(and(eq(events.id, id), isNull(events.deletedAt)))
+      .returning();
+    if (row?.matterId)
+      await logActivity(db, {
+        matterId: row.matterId,
+        type: "system",
+        body: `Removed: ${row.title} (${formatDate(row.date)})`,
+        messageKey: "eventRemoved",
+        messageValues: { title: row.title, date: row.date },
+        authorId: me.id,
+      });
     if (row) after(() => syncEvent(id));
     revalidateAll();
     return { ok: true };
@@ -203,6 +239,8 @@ export async function addLedgerEntry(raw: z.input<typeof ledgerInput>): Promise<
     await logActivity(db, {
       matterId: l.matterId,
       type: l.kind === "payment" ? "payment" : "system",
+      messageKey: "ledgerAdded",
+      messageValues: { kind: l.kind, amount: formatCents(l.amountCents), description: l.description, method: l.method },
       body: `${label}: ${formatCents(l.amountCents)}${l.description ? ` — ${l.description}` : ""}${l.method ? ` (${l.method})` : ""}`,
       authorId: me.id,
     });
@@ -220,7 +258,14 @@ export async function deleteLedgerEntry(id: string): Promise<ActionResult> {
     if (!entry) return { ok: true };
     if (me.role !== "admin" && entry.createdBy !== me.id) return { ok: false, error: "admin_only" };
     await db.delete(ledgerEntries).where(eq(ledgerEntries.id, id));
-    await logActivity(db, { matterId: entry.matterId, type: "system", body: `Deleted ${entry.kind}: ${formatCents(entry.amountCents)}${entry.description ? ` — ${entry.description}` : ""}`, authorId: me.id });
+    await logActivity(db, {
+      matterId: entry.matterId,
+      type: "system",
+      messageKey: "ledgerDeleted",
+      messageValues: { kind: entry.kind, amount: formatCents(entry.amountCents), description: entry.description },
+      body: `Deleted ${entry.kind}: ${formatCents(entry.amountCents)}${entry.description ? ` — ${entry.description}` : ""}`,
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (err) {
@@ -270,10 +315,16 @@ export async function deleteActivity(id: string): Promise<ActionResult> {
 export async function addHoliday(date: string, name: string): Promise<ActionResult> {
   try {
     await requireAdmin();
-    const d = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(date);
+    const d = z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .parse(date);
     const n = z.string().trim().min(1).max(120).parse(name);
     const { courtHolidays } = await import("@/db/schema");
-    await db.insert(courtHolidays).values({ date: d, name: n }).onConflictDoUpdate({ target: courtHolidays.date, set: { name: n } });
+    await db
+      .insert(courtHolidays)
+      .values({ date: d, name: n })
+      .onConflictDoUpdate({ target: courtHolidays.date, set: { name: n } });
     revalidateAll();
     return { ok: true };
   } catch (err) {

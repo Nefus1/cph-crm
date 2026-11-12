@@ -35,6 +35,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run db:migrate
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/cph_test
+      - run: npx vitest run tests/intake-folders.integration.test.ts
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/cph_test
+          RUN_DB_TESTS: "1"
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
@@ -46,3 +53,20 @@ jobs:
           name: e2e-results
           path: test-results/
           retention-days: 7
+
+  connector:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m unittest discover -s connector -p "test_*.py" -v
+      - run: python scripts/package-connector.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: connector-${{ matrix.os }}
+          path: dist/CPH-Windows-Connector.zip

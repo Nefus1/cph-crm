@@ -2,11 +2,11 @@
 
 This guide takes you from nothing to a live CRM your team can sign in to. Plan on about an hour. You'll create three accounts, copy a few keys between them, and click Deploy.
 
-| Service | What it does | Cost |
-| --- | --- | --- |
-| **Supabase** | The database and Google sign-in | Free to start. **Pro, $25/mo**, is recommended for daily backups of client data. |
-| **Vercel** | Hosts the app at a web address | **Pro, $20/mo**. The free Hobby plan is for non-commercial use only. (A daily background re-sync retries any calendar pushes that failed; dates normally sync the moment they are saved.) |
-| **Google Cloud** | Lets the CRM create Drive folders and calendar events | Free |
+| Service          | What it does                                          | Cost                                                                                                                                                                                      |
+| ---------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase**     | The database and Google sign-in                       | Free to start. **Pro, $25/mo**, is recommended for daily backups of client data.                                                                                                          |
+| **Vercel**       | Hosts the app at a web address                        | **Pro, $20/mo**. The free Hobby plan is for non-commercial use only. (A daily background re-sync retries any calendar pushes that failed; dates normally sync the moment they are saved.) |
+| **Google Cloud** | Lets the CRM create Drive folders and calendar events | Free                                                                                                                                                                                      |
 
 Only the owner needs Vercel and Supabase accounts. Staff just sign in to the CRM with their Google account.
 
@@ -67,17 +67,17 @@ Sign in to <https://console.cloud.google.com> with **your firm's Google account*
 2. Click **Add New → Project** and import **Nefus1/cph-crm**.
 3. Before deploying, open **Environment Variables** and add these:
 
-   | Name | Value |
-   | --- | --- |
-   | `DATABASE_URL` | Session pooler string (port 5432) |
-   | `DIRECT_DATABASE_URL` | The same Session pooler string |
-   | `NEXT_PUBLIC_SUPABASE_URL` | From Supabase → API |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | From Supabase → API |
-   | `BOOTSTRAP_ADMIN_EMAIL` | Your Google email (e.g. `you@yourfirm.com`) |
-   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From Google Cloud |
-   | `ENCRYPTION_KEY` | 64 random hex characters. On a Mac or Linux, run `openssl rand -hex 32` and paste the result. |
-   | `CRON_SECRET` | Any long random string, e.g. another `openssl rand -hex 32` |
-   | `APP_URL` | `https://<your-app>.vercel.app` (update it if you add a custom domain) |
+   | Name                                        | Value                                                                                         |
+   | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+   | `DATABASE_URL`                              | Session pooler string (port 5432)                                                             |
+   | `DIRECT_DATABASE_URL`                       | The same Session pooler string                                                                |
+   | `NEXT_PUBLIC_SUPABASE_URL`                  | From Supabase → API                                                                           |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY`             | From Supabase → API                                                                           |
+   | `BOOTSTRAP_ADMIN_EMAIL`                     | Your Google email (e.g. `you@yourfirm.com`)                                                   |
+   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | From Google Cloud                                                                             |
+   | `ENCRYPTION_KEY`                            | 64 random hex characters. On a Mac or Linux, run `openssl rand -hex 32` and paste the result. |
+   | `CRON_SECRET`                               | Any long random string, e.g. another `openssl rand -hex 32`                                   |
+   | `APP_URL`                                   | `https://<your-app>.vercel.app` (update it if you add a custom domain)                        |
 
 4. Click **Deploy**. The first build creates all the database tables for you, because `vercel.json` runs the migrations before the build.
 5. After it deploys:
@@ -90,6 +90,8 @@ Sign in to <https://console.cloud.google.com> with **your firm's Google account*
 > **Custom domain (optional):** In Vercel, go to **Settings → Domains** and add something like `crm.cph.la`. Then update `APP_URL`, the Google redirect URI, and the Supabase URLs to use the new address.
 
 ## 4. First sign-in checklist
+
+For case folders, also complete [the Synology connector rollout](CASE_SETUP.md). The CRM no longer creates folders directly in Google Drive. Existing Drive links are preserved.
 
 1. Open the app and click **Continue with Google** using the `BOOTSTRAP_ADMIN_EMAIL` account. You become the first admin automatically.
 2. **Settings → Google → Connect Google.** Approve the Drive and Calendar access.
@@ -106,7 +108,7 @@ Sign in to <https://console.cloud.google.com> with **your firm's Google account*
 ### Quick test
 
 1. Create a matter for "ZZ Test, Demo" under General.
-2. Check that a folder `ZZ Test, Demo — General` with Pleadings, Correspondence, Exhibits and Scans appears in `Cases/`.
+2. Follow the verification-matter flow in [CASE_SETUP.md](CASE_SETUP.md): the connector creates the numbered folder on Synology, then the existing sync copies it to Google Drive.
 3. On the matter, add a deadline with the **Filing** reminders. It should appear on Hearings and Deadlines with reminders 5, 2 and 1 days before.
 4. Delete the test matter. That's in the **⋯** menu and needs an admin. Confirm the calendar event disappears too.
 
@@ -117,7 +119,7 @@ Sign in to <https://console.cloud.google.com> with **your firm's Google account*
 - **Backups:** Supabase Pro takes daily backups. You can also download a copy anytime from **Supabase → Database → Backups**.
 - **Retiring old tools:** once the team works in the CRM, the Microsoft To Do matter lists and the Zapier "cph daily rundown" are replaced by the **Today** page and **Tasks**.
 - **Calendar:** the CRM is the source of truth. Edit dates in the CRM and they update in Google. Changes made directly in Google Calendar don't flow back.
-- **Drive folder names** stay in English ("UD (Plaintiff)") so they match your existing folders. The CRM screens can be switched to Spanish per person.
+- **New folder names** include the unique matter number and stable English case labels ("UD (Plaintiff)"). Existing folders are not renamed. The CRM screens can be switched to Spanish per person.
 
 ## Local development (for developers)
 

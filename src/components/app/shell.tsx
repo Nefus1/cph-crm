@@ -12,6 +12,7 @@ import { setLocale } from "@/server/actions/settings";
 import { useAppData } from "./app-data";
 import { CommandPalette } from "./command-palette";
 import { NavLinks, SettingsLink } from "./nav";
+import { useAction } from "./use-action";
 import { useQuickActions } from "./quick-actions";
 
 function Brand({ firmName }: { firmName: string }) {
@@ -38,7 +39,11 @@ export function AppShell({ children, firmName }: { children: React.ReactNode; fi
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setSearchOpen((o) => !o);
-      } else if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) && !(e.target as HTMLElement)?.isContentEditable) {
+      } else if (
+        e.key === "/" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) &&
+        !(e.target as HTMLElement)?.isContentEditable
+      ) {
         e.preventDefault();
         setSearchOpen(true);
       }
@@ -95,6 +100,7 @@ export function AppShell({ children, firmName }: { children: React.ReactNode; fi
             <div className="lg:hidden">
               <NewMenu />
             </div>
+            <LanguageButton />
             <UserMenu />
           </div>
         </header>
@@ -143,6 +149,7 @@ function NewMenu({ full }: { full?: boolean }) {
 }
 
 function UserMenu() {
+  const { pending, run } = useAction();
   const { me, locale } = useAppData();
   const t = useTranslations("nav");
   const { theme, setTheme } = useTheme();
@@ -159,10 +166,15 @@ function UserMenu() {
           <div className="truncate text-xs font-normal text-muted">{me.email}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => setLocale(locale === "es" ? "en" : "es")}>
+        <DropdownMenuItem disabled={pending} onSelect={() => run(() => setLocale(locale === "es" ? "en" : "es"))}>
           <Languages /> {locale === "es" ? "English" : "Español"}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setTheme(theme === "dark" ? "light" : theme === "light" ? "system" : "dark"); }}>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            setTheme(theme === "dark" ? "light" : theme === "light" ? "system" : "dark");
+          }}
+        >
           {theme === "dark" ? <Moon /> : theme === "light" ? <Sun /> : <Monitor />}
           {t("theme")}: {t(`themes.${(theme as "dark" | "light" | "system") ?? "system"}`)}
         </DropdownMenuItem>
@@ -176,5 +188,22 @@ function UserMenu() {
         </form>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function LanguageButton() {
+  const { locale } = useAppData();
+  const { pending, run } = useAction();
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={pending}
+      aria-label={locale === "es" ? "Switch to English" : "Cambiar a español"}
+      onClick={() => run(() => setLocale(locale === "es" ? "en" : "es"))}
+    >
+      <Languages className="size-4" />
+      <span>{locale === "es" ? "English" : "Español"}</span>
+    </Button>
   );
 }

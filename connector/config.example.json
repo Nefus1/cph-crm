@@ -1,0 +1,5 @@
+{
+  "crm_url": "https://crm.example.com",
+  "base_cases_dir": "D:\\SynologyDrive\\CPH\\Cases",
+  "token": "REPLACE_WITH_DEVICE_TOKEN_FROM_CRM_SETTINGS"
+}

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/", key: "today", icon: Home, exact: true },
   { href: "/matters", key: "matters", icon: Briefcase },
+  { href: "/case-generator", key: "generator", icon: Briefcase },
+  { href: "/intake-drafts", key: "drafts", icon: Users },
   { href: "/contacts", key: "contacts", icon: Users },
   { href: "/calendar", key: "calendar", icon: CalendarDays },
   { href: "/tasks", key: "tasks", icon: CheckSquare },

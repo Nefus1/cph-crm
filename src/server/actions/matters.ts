@@ -3,11 +3,12 @@ import { after } from "next/server";
 import { and, eq, max, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { checklistItems, contacts, events, ledgerEntries, matterParties, matters } from "@/db/schema";
+import { checklistItems, contacts, events, ledgerEntries, matterParties, matters, intakeDrafts, intakeSubmissions, matterFolders } from "@/db/schema";
 import { areaConfig, buildDisplayName, isFinalStage, optionLabel, PARTY_ROLES, stageLabel, stagesFor } from "@/config/practice-areas";
 import { requireAdmin, requireStaff } from "@/lib/auth";
 import { todayISO } from "@/lib/dates";
-import { ensureMatterFolder } from "@/lib/google/drive";
+import { enqueueFolder, discoverFolder } from "@/lib/folders/service";
+import { conflictSearch } from "@/server/queries/search";
 import { syncEvent } from "@/lib/google/calendar";
 import { formatCents } from "@/lib/money";
 import { contactInput, intakeInput, matterCoreInput, partyInput, type IntakeInput } from "@/server/schemas";
@@ -34,6 +35,22 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
     const stage = m.stage && stages.some((s) => s.key === m.stage) ? m.stage : stages[0].key;
 
     const matterId = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${input.submissionId}, 0))`);
+      const submitted = await tx.query.intakeSubmissions.findFirst({ where: eq(intakeSubmissions.id, input.submissionId) });
+      if (submitted) {
+        if (!submitted.matterId) throw new Error("submission_deleted");
+        return submitted.matterId;
+      }
+      const draft = await tx.query.intakeDrafts.findFirst({ where: eq(intakeDrafts.id, input.submissionId) });
+      if (draft ? draft.version !== input.draftVersion || draft.status !== "draft" : input.draftVersion !== 0) throw new Error("draft_conflict");
+      if (!cfg.types.some((t) => t.value === m.matterType)) throw new Error("invalid_input");
+      const reviewNames: string[] = [];
+      for (const candidate of [input.client, ...input.otherParties]) {
+        const contact = candidate.contactId ? await tx.query.contacts.findFirst({ where: eq(contacts.id, candidate.contactId) }) : null;
+        if (candidate.contactId && !contact) throw new Error("not_found");
+        reviewNames.push(contact?.displayName ?? (candidate.contact ? contactValues(contactInput.parse(candidate.contact)).displayName : ""));
+      }
+      const matches = await conflictSearch(reviewNames, tx);
       // 1. Client
       let clientId = input.client.contactId;
       let clientName = "";
@@ -45,7 +62,10 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
         if (!input.client.contact) throw new Error("client_required");
         const cv = contactValues(contactInput.parse(input.client.contact));
         if (!cv.firstName && !cv.lastName && !cv.orgName) throw new Error("name_required");
-        const [c] = await tx.insert(contacts).values({ ...cv, createdBy: me.id }).returning();
+        const [c] = await tx
+          .insert(contacts)
+          .values({ ...cv, createdBy: me.id })
+          .returning();
         clientId = c.id;
         clientName = c.displayName;
       }
@@ -74,7 +94,7 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
           flatFeeCents: m.flatFeeCents,
           details: cleanDetails(m.practiceArea, m.details),
           summary: m.summary,
-          driveStatus: input.createDriveFolder ? "pending" : "none",
+          driveStatus: "none",
           createdBy: me.id,
         })
         .returning();
@@ -86,7 +106,10 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
         if (!contactId && p.contact) {
           const cv = contactValues(contactInput.parse(p.contact));
           if (!cv.firstName && !cv.lastName && !cv.orgName) continue;
-          const [c] = await tx.insert(contacts).values({ ...cv, createdBy: me.id }).returning({ id: contacts.id });
+          const [c] = await tx
+            .insert(contacts)
+            .values({ ...cv, createdBy: me.id })
+            .returning({ id: contacts.id });
           contactId = c.id;
         }
         if (contactId) await tx.insert(matterParties).values({ matterId: matter.id, contactId, role: p.role }).onConflictDoNothing();
@@ -99,7 +122,9 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
 
       // 5. Fees
       if (m.feeType === "flat" && m.flatFeeCents > 0) {
-        await tx.insert(ledgerEntries).values({ matterId: matter.id, kind: "charge", description: "Flat fee", amountCents: m.flatFeeCents, entryDate: matter.openedOn, createdBy: me.id });
+        await tx
+          .insert(ledgerEntries)
+          .values({ matterId: matter.id, kind: "charge", description: "Flat fee", amountCents: m.flatFeeCents, entryDate: matter.openedOn, createdBy: me.id });
       }
       if (input.initialPaymentCents > 0) {
         await tx.insert(ledgerEntries).values({
@@ -114,15 +139,44 @@ export async function createIntake(raw: IntakeInput): Promise<ActionResult<{ id:
       }
 
       // 6. Timeline
-      await logActivity(tx, { matterId: matter.id, type: "system", body: `Matter opened (${number})`, authorId: me.id });
+      await logActivity(tx, {
+        matterId: matter.id,
+        type: "system",
+        body: `Matter opened (${number})`,
+        messageKey: "matterOpened",
+        messageValues: { number },
+        authorId: me.id,
+      });
       if (input.note) await logActivity(tx, { matterId: matter.id, type: "note", body: input.note, authorId: me.id });
       if (input.initialPaymentCents > 0) {
-        await logActivity(tx, { matterId: matter.id, type: "payment", body: `Payment received: ${formatCents(input.initialPaymentCents)}${input.paymentMethod ? ` (${input.paymentMethod})` : ""}`, authorId: me.id });
+        await logActivity(tx, {
+          matterId: matter.id,
+          type: "payment",
+          body: `Payment received: ${formatCents(input.initialPaymentCents)}${input.paymentMethod ? ` (${input.paymentMethod})` : ""}`,
+          messageKey: "paymentReceived",
+          messageValues: { amount: formatCents(input.initialPaymentCents), method: input.paymentMethod },
+          authorId: me.id,
+        });
       }
+      await tx
+        .insert(intakeSubmissions)
+        .values({ id: input.submissionId, matterId: matter.id, reviewedBy: me.id, conflictContactIds: matches.map((h) => h.contactId) });
+      await logActivity(tx, {
+        matterId: matter.id,
+        type: "system",
+        body: "Potential conflict matches reviewed",
+        messageKey: "conflictReviewed",
+        authorId: me.id,
+      });
+      if (draft)
+        await tx
+          .update(intakeDrafts)
+          .set({ status: "submitted", version: draft.version + 1 })
+          .where(eq(intakeDrafts.id, draft.id));
+      if (input.createDriveFolder) await enqueueFolder(tx, matter.id);
       return matter.id;
     });
 
-    if (input.createDriveFolder) after(() => ensureMatterFolder(matterId));
     revalidateAll();
     return { ok: true, data: { id: matterId } };
   } catch (e) {
@@ -176,11 +230,41 @@ export async function updateMatter(id: string, raw: z.input<typeof matterCoreInp
       })
       .where(eq(matters.id, id));
 
-    const changes: string[] = [];
-    if (current.caseNumber !== m.caseNumber && m.caseNumber) changes.push(`Case number set to ${m.caseNumber}`);
-    if (current.status !== m.status) changes.push(`Status: ${current.status} → ${m.status}`);
-    if (current.stage !== stage) changes.push(`Stage: ${stageLabel(current.practiceArea, current.side, current.stage, "en")} → ${stageLabel(m.practiceArea, side, stage, "en")}`);
-    await logActivity(db, { matterId: id, type: current.stage !== stage ? "stage_change" : "system", body: changes.length ? changes.join(" · ") : "Matter details updated", authorId: me.id });
+    let changed = false;
+    if (current.caseNumber !== m.caseNumber) {
+      changed = true;
+      await logActivity(db, {
+        matterId: id,
+        type: "system",
+        body: `Case number: ${current.caseNumber} → ${m.caseNumber}`,
+        messageKey: "caseNumberChanged",
+        messageValues: { from: current.caseNumber || "—", to: m.caseNumber || "—" },
+        authorId: me.id,
+      });
+    }
+    if (current.status !== m.status) {
+      changed = true;
+      await logActivity(db, {
+        matterId: id,
+        type: "system",
+        body: `Status: ${current.status} → ${m.status}`,
+        messageKey: "statusChanged",
+        messageValues: { from: current.status, to: m.status },
+        authorId: me.id,
+      });
+    }
+    if (current.stage !== stage) {
+      changed = true;
+      await logActivity(db, {
+        matterId: id,
+        type: "stage_change",
+        body: `Stage: ${current.stage} → ${stage}`,
+        messageKey: "stageChanged",
+        messageValues: { fromArea: current.practiceArea, fromSide: current.side, area: m.practiceArea, side, from: current.stage, to: stage },
+        authorId: me.id,
+      });
+    }
+    if (!changed) await logActivity(db, { matterId: id, type: "system", body: "Matter details updated", messageKey: "matterUpdated", authorId: me.id });
 
     // Calendar titles include the case number / name — resync if those changed
     if (current.caseNumber !== m.caseNumber || current.displayName !== displayName) {
@@ -208,7 +292,13 @@ export async function setMatterStage(id: string, stage: string): Promise<ActionR
     if (!stages.some((s) => s.key === stage)) return { ok: false, error: "invalid_stage" };
     if (current.stage === stage) return { ok: true };
     const final = isFinalStage(current.practiceArea, current.side, stage);
-    const status = final ? "closed" : current.status === "closed" ? "active" : current.status === "intake" && stage !== stages[0].key ? "active" : current.status;
+    const status = final
+      ? "closed"
+      : current.status === "closed"
+        ? "active"
+        : current.status === "intake" && stage !== stages[0].key
+          ? "active"
+          : current.status;
     await db
       .update(matters)
       .set({ stage, status, closedOn: status === "closed" ? todayISO() : null })
@@ -217,6 +307,8 @@ export async function setMatterStage(id: string, stage: string): Promise<ActionR
       matterId: id,
       type: "stage_change",
       body: `Stage: ${stageLabel(current.practiceArea, current.side, current.stage, "en")} → ${stageLabel(current.practiceArea, current.side, stage, "en")}`,
+      messageKey: "stageChanged",
+      messageValues: { area: current.practiceArea, side: current.side, from: current.stage, to: stage },
       authorId: me.id,
     });
     revalidateAll();
@@ -235,7 +327,14 @@ export async function setMatterStatus(id: string, status: "intake" | "active" | 
       .update(matters)
       .set({ status, closedOn: status === "closed" ? todayISO() : null })
       .where(eq(matters.id, id));
-    await logActivity(db, { matterId: id, type: "system", body: `Status: ${current.status} → ${status}`, authorId: me.id });
+    await logActivity(db, {
+      matterId: id,
+      type: "system",
+      body: `Status: ${current.status} → ${status}`,
+      messageKey: "statusChanged",
+      messageValues: { from: current.status, to: status },
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -247,7 +346,13 @@ export async function setMatterAssignee(id: string, assigneeId: string | null): 
   try {
     const me = await requireStaff();
     await db.update(matters).set({ assigneeId }).where(eq(matters.id, id));
-    await logActivity(db, { matterId: id, type: "system", body: assigneeId ? "Assignee changed" : "Assignee removed", authorId: me.id });
+    await logActivity(db, {
+      matterId: id,
+      type: "system",
+      body: assigneeId ? "Assignee changed" : "Assignee removed",
+      messageKey: assigneeId ? "assigneeChanged" : "assigneeRemoved",
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -258,8 +363,17 @@ export async function setMatterAssignee(id: string, assigneeId: string | null): 
 export async function archiveMatter(id: string, archived: boolean): Promise<ActionResult> {
   try {
     const me = await requireStaff();
-    await db.update(matters).set({ archivedAt: archived ? sql`now()` : null }).where(eq(matters.id, id));
-    await logActivity(db, { matterId: id, type: "system", body: archived ? "Matter archived" : "Matter restored", authorId: me.id });
+    await db
+      .update(matters)
+      .set({ archivedAt: archived ? sql`now()` : null })
+      .where(eq(matters.id, id));
+    await logActivity(db, {
+      matterId: id,
+      type: "system",
+      body: archived ? "Matter archived" : "Matter restored",
+      messageKey: archived ? "archived" : "restored",
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -272,7 +386,10 @@ export async function deleteMatter(id: string): Promise<ActionResult> {
   try {
     await requireAdmin();
     const evs = await db.select({ id: events.id }).from(events).where(eq(events.matterId, id));
-    await db.update(events).set({ deletedAt: sql`now()` }).where(eq(events.matterId, id));
+    await db
+      .update(events)
+      .set({ deletedAt: sql`now()` })
+      .where(eq(events.matterId, id));
     for (const e of evs) await syncEvent(e.id);
     await db.delete(matters).where(eq(matters.id, id));
     revalidateAll();
@@ -290,13 +407,23 @@ export async function addMatterParty(matterId: string, raw: z.input<typeof party
     if (!contactId && p.contact) {
       const cv = contactValues(contactInput.parse(p.contact));
       if (!cv.firstName && !cv.lastName && !cv.orgName) return { ok: false, error: "name_required" };
-      const [c] = await db.insert(contacts).values({ ...cv, createdBy: me.id }).returning({ id: contacts.id });
+      const [c] = await db
+        .insert(contacts)
+        .values({ ...cv, createdBy: me.id })
+        .returning({ id: contacts.id });
       contactId = c.id;
     }
     if (!contactId) return { ok: false, error: "name_required" };
     await db.insert(matterParties).values({ matterId, contactId, role: p.role }).onConflictDoNothing();
     const c = await db.query.contacts.findFirst({ where: eq(contacts.id, contactId) });
-    await logActivity(db, { matterId, type: "system", body: `Added ${c?.displayName ?? "contact"} as ${optionLabel(PARTY_ROLES, p.role, "en")}`, authorId: me.id });
+    await logActivity(db, {
+      matterId,
+      type: "system",
+      body: `Added ${c?.displayName ?? "contact"} as ${optionLabel(PARTY_ROLES, p.role, "en")}`,
+      messageKey: "partyAdded",
+      messageValues: { name: c?.displayName ?? "", role: p.role },
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -310,11 +437,20 @@ export async function removeMatterParty(partyId: string): Promise<ActionResult> 
     const party = await db.query.matterParties.findFirst({ where: eq(matterParties.id, partyId) });
     if (!party) return { ok: true };
     if (party.role === "client") {
-      const clients = await db.execute<{ n: number }>(sql`select count(*)::int as n from matter_parties where matter_id = ${party.matterId} and role = 'client'`);
+      const clients = await db.execute<{ n: number }>(
+        sql`select count(*)::int as n from matter_parties where matter_id = ${party.matterId} and role = 'client'`,
+      );
       if (Number(clients[0]?.n) <= 1) return { ok: false, error: "last_client" };
     }
     await db.delete(matterParties).where(eq(matterParties.id, partyId));
-    await logActivity(db, { matterId: party.matterId, type: "system", body: `Removed a ${optionLabel(PARTY_ROLES, party.role, "en").toLowerCase()} from the matter`, authorId: me.id });
+    await logActivity(db, {
+      matterId: party.matterId,
+      type: "system",
+      body: `Removed a ${optionLabel(PARTY_ROLES, party.role, "en").toLowerCase()} from the matter`,
+      messageKey: "partyRemoved",
+      messageValues: { role: party.role },
+      authorId: me.id,
+    });
     revalidateAll();
     return { ok: true };
   } catch (e) {
@@ -325,9 +461,11 @@ export async function removeMatterParty(partyId: string): Promise<ActionResult> 
 export async function retryDriveFolder(matterId: string): Promise<ActionResult> {
   try {
     await requireStaff();
-    const res = await ensureMatterFolder(matterId);
+    const bindings = await db.select().from(matterFolders).where(eq(matterFolders.matterId, matterId));
+    if (!bindings.length) await db.transaction((tx) => enqueueFolder(tx, matterId));
+    else for (const b of bindings) await discoverFolder(b.id);
     revalidateAll();
-    return res.ok ? { ok: true } : { ok: false, error: res.error ?? "drive_error" };
+    return { ok: true };
   } catch (e) {
     return fail(e);
   }
@@ -352,7 +490,10 @@ export async function addChecklistItem(matterId: string, label: string): Promise
     await requireStaff();
     const text = label.trim().slice(0, 300);
     if (!text) return { ok: false, error: "required" };
-    const [row] = await db.select({ pos: max(checklistItems.position) }).from(checklistItems).where(eq(checklistItems.matterId, matterId));
+    const [row] = await db
+      .select({ pos: max(checklistItems.position) })
+      .from(checklistItems)
+      .where(eq(checklistItems.matterId, matterId));
     await db.insert(checklistItems).values({ matterId, label: text, labelEs: text, position: (row?.pos ?? -1) + 1 });
     revalidateAll();
     return { ok: true };

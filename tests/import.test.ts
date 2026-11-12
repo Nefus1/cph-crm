@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { cleanEmail, guessMatter, mapSheetRow, parseAddress, parseCaseFolderName, parseFamilyNotes, parseIntakeDoc, rowsFromSheet, statusFromText } from "@/lib/import/mapping";
+import {
+  cleanEmail,
+  guessMatter,
+  mapSheetRow,
+  parseAddress,
+  parseCaseFolderName,
+  parseFamilyNotes,
+  parseIntakeDoc,
+  rowsFromSheet,
+  statusFromText,
+} from "@/lib/import/mapping";
 import { splitName } from "@/lib/names";
 import { phoneDigits, splitPhones, formatPhone } from "@/lib/phone";
 import { ledgerTotals, parseMoneyToCents } from "@/lib/money";
@@ -27,8 +37,30 @@ describe("matter mapping", () => {
 describe("intake sheet rows", () => {
   const values = [
     ["Timestamp", "Name", "Address", "Phone", "E-mail", "Matter", "Fee(s)", "Payment", "Notes", "Status"],
-    ["1/26/2023 12:53:13", "John Doe", "123 Fake St", "310-222-0000", "info@cph.com", "Divorce", "$1,800.00", "$800.00", "DOM: 12/11/2008\nDOS: 10/15/2018\n\nNo Prop\nNo Kids", ""],
-    ["2/24/2023 15:57:33", "Normando Rivas Quinonez", "1523 W 154th St, Compton, CA 90220", "562-244-2554 / 562-228-4166", "", "Divorce", "$750.00", "$250.00", "", ""],
+    [
+      "1/26/2023 12:53:13",
+      "John Doe",
+      "123 Fake St",
+      "310-222-0000",
+      "info@cph.com",
+      "Divorce",
+      "$1,800.00",
+      "$800.00",
+      "DOM: 12/11/2008\nDOS: 10/15/2018\n\nNo Prop\nNo Kids",
+      "",
+    ],
+    [
+      "2/24/2023 15:57:33",
+      "Normando Rivas Quinonez",
+      "1523 W 154th St, Compton, CA 90220",
+      "562-244-2554 / 562-228-4166",
+      "",
+      "Divorce",
+      "$750.00",
+      "$250.00",
+      "",
+      "",
+    ],
     ["", "", "", "", "", "", "", "", "", ""],
   ];
   const rows = rowsFromSheet(values);
@@ -60,7 +92,12 @@ describe("intake sheet rows", () => {
 
 describe("helpers", () => {
   it("parses addresses", () => {
-    expect(parseAddress("10320 S Freeman Ave, Inglewood, CA 90304")).toEqual({ addressLine1: "10320 S Freeman Ave", city: "Inglewood", state: "CA", zip: "90304" });
+    expect(parseAddress("10320 S Freeman Ave, Inglewood, CA 90304")).toEqual({
+      addressLine1: "10320 S Freeman Ave",
+      city: "Inglewood",
+      state: "CA",
+      zip: "90304",
+    });
   });
   it("cleans emails", () => {
     expect(cleanEmail("info@email.com")).toBe("");
@@ -85,13 +122,28 @@ describe("helpers", () => {
     expect(statusFromText("Closed", "2026-08-01", "active", "2026-09-29")).toBe("closed");
   });
   it("parses Drive case folder names", () => {
-    expect(parseCaseFolderName("Acosta, Francisco — UD (Plaintiff)")).toEqual({ lastName: "Acosta", firstName: "Francisco", typeText: "UD", sideText: "Plaintiff" });
-    expect(parseCaseFolderName("Lamar Shorts - Conservatorship")).toEqual({ lastName: "Lamar Shorts", firstName: "", typeText: "Conservatorship", sideText: "" });
+    expect(parseCaseFolderName("Acosta, Francisco — UD (Plaintiff)")).toEqual({
+      lastName: "Acosta",
+      firstName: "Francisco",
+      typeText: "UD",
+      sideText: "Plaintiff",
+    });
+    expect(parseCaseFolderName("Lamar Shorts - Conservatorship")).toEqual({
+      lastName: "Lamar Shorts",
+      firstName: "",
+      typeText: "Conservatorship",
+      sideText: "",
+    });
     expect(parseCaseFolderName("Random folder")).toBeNull();
   });
   it("parses the 00 Intake doc", () => {
-    const doc = "- **Matter name:** Acosta v. Merdado, et al.\n- **Case number:** 26CMUD01121\n- Venue: routes to the **Governor George Deukmejian Courthouse (Long Beach)**";
-    expect(parseIntakeDoc(doc)).toEqual({ caption: "Acosta v. Merdado, et al", caseNumber: "26CMUD01121", courthouse: "Governor George Deukmejian (Long Beach)" });
+    const doc =
+      "- **Matter name:** Acosta v. Merdado, et al.\n- **Case number:** 26CMUD01121\n- Venue: routes to the **Governor George Deukmejian Courthouse (Long Beach)**";
+    expect(parseIntakeDoc(doc)).toEqual({
+      caption: "Acosta v. Merdado, et al",
+      caseNumber: "26CMUD01121",
+      courthouse: "Governor George Deukmejian (Long Beach)",
+    });
     expect(parseIntakeDoc("Case number: — NEEDED —").caseNumber).toBeUndefined();
   });
 });
@@ -100,7 +152,13 @@ describe("money", () => {
   it("parses and totals", () => {
     expect(parseMoneyToCents("$1,800.00")).toBe(180000);
     expect(parseMoneyToCents("abc")).toBeNull();
-    expect(ledgerTotals([{ kind: "charge", amountCents: 180000 }, { kind: "payment", amountCents: 80000 }, { kind: "adjustment", amountCents: -10000 }]).balance).toBe(90000);
+    expect(
+      ledgerTotals([
+        { kind: "charge", amountCents: 180000 },
+        { kind: "payment", amountCents: 80000 },
+        { kind: "adjustment", amountCents: -10000 },
+      ]).balance,
+    ).toBe(90000);
   });
 });
 
@@ -113,7 +171,12 @@ describe("schemas", () => {
     expect(() => contactInput.parse(once)).not.toThrow();
   });
   it("intake input accepts a minimal new client", () => {
-    const r = intakeInput.parse({ client: { contact: { firstName: "Dbg", lastName: "Test", dateOfBirth: "" } }, matter: { practiceArea: "ud", matterType: "30day", side: "plaintiff", openedOn: "2026-09-29", assigneeId: null } });
+    const r = intakeInput.parse({
+      submissionId: "00000000-0000-4000-8000-000000000001",
+      conflictReviewed: true,
+      client: { contact: { firstName: "Dbg", lastName: "Test", dateOfBirth: "" } },
+      matter: { practiceArea: "ud", matterType: "30day", side: "plaintiff", openedOn: "2026-09-29", assigneeId: null },
+    });
     expect(r.matter.status).toBe("active");
     expect(r.client.contact?.dateOfBirth).toBeNull();
   });

@@ -1,8 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { matters } from "@/db/schema";
-import { driveApi, getAuthedClient, googleErrorMessage } from "./client";
+import { driveApi, getAuthedClient } from "./client";
 
 export const MATTER_SUBFOLDERS = ["Pleadings", "Correspondence", "Exhibits", "Scans"];
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -22,19 +19,6 @@ export async function findChildFolder(drive: Drive, parentId: string, name: stri
     includeItemsFromAllDrives: true,
   });
   return res.data.files?.[0] ?? null;
-}
-
-export async function createFolder(drive: Drive, parentId: string, name: string) {
-  const res = await drive.files.create({
-    requestBody: { name, mimeType: FOLDER_MIME, parents: [parentId] },
-    fields: "id, name, webViewLink",
-    supportsAllDrives: true,
-  });
-  return res.data;
-}
-
-export async function ensureFolder(drive: Drive, parentId: string, name: string) {
-  return (await findChildFolder(drive, parentId, name)) ?? (await createFolder(drive, parentId, name));
 }
 
 /** Folder picker: list sub-folders of a folder (or My Drive root), optionally filtered by name. */
@@ -61,43 +45,6 @@ export async function getFolderName(id: string) {
   if (!authed) throw new Error("Google is not connected");
   const res = await driveApi(authed.client).files.get({ fileId: id, fields: "id, name", supportsAllDrives: true });
   return res.data.name ?? id;
-}
-
-/**
- * Creates (or reuses) Cases/"Last, First — Type (Side)" with the standard subfolders
- * and stores the link on the matter. Idempotent: an existing same-name folder is reused.
- */
-export async function ensureMatterFolder(matterId: string): Promise<{ ok: boolean; error?: string }> {
-  const matter = await db.query.matters.findFirst({ where: eq(matters.id, matterId) });
-  if (!matter) return { ok: false, error: "Matter not found" };
-  const authed = await getAuthedClient();
-  if (!authed || !authed.settings.casesFolderId) {
-    await db.update(matters).set({ driveStatus: "none", driveError: null }).where(eq(matters.id, matterId));
-    return { ok: false, error: "Google Drive is not connected or no Cases folder is selected" };
-  }
-  try {
-    await db.update(matters).set({ driveStatus: "pending", driveError: null }).where(eq(matters.id, matterId));
-    const drive = driveApi(authed.client);
-    const folder = matter.driveFolderId
-      ? (await drive.files.get({ fileId: matter.driveFolderId, fields: "id, name, webViewLink, trashed", supportsAllDrives: true })).data
-      : await ensureFolder(drive, authed.settings.casesFolderId, matter.displayName);
-    if (!folder?.id) throw new Error("Folder could not be created");
-    for (const sub of MATTER_SUBFOLDERS) await ensureFolder(drive, folder.id, sub);
-    await db
-      .update(matters)
-      .set({
-        driveFolderId: folder.id,
-        driveFolderUrl: folder.webViewLink ?? `https://drive.google.com/drive/folders/${folder.id}`,
-        driveStatus: "ok",
-        driveError: null,
-      })
-      .where(eq(matters.id, matterId));
-    return { ok: true };
-  } catch (err) {
-    const msg = googleErrorMessage(err);
-    await db.update(matters).set({ driveStatus: "error", driveError: msg.slice(0, 500) }).where(eq(matters.id, matterId));
-    return { ok: false, error: msg };
-  }
 }
 
 export interface DriveFile {
